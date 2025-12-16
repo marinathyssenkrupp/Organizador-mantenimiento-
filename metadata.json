@@ -1,0 +1,7 @@
+{
+  "name": "Gestor de Mantenciones Verticales",
+  "description": "Una aplicación profesional para organizar y visualizar registros de mantenimiento de ascensores y escaleras mecánicas en Mol Marina, Boulevard y Ama, con asistencia de IA.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

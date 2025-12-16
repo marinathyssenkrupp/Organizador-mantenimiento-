@@ -1,0 +1,16 @@
+{
+  "short_name": "Mantenciones",
+  "name": "Gestor de Mantenciones Verticales",
+  "icons": [
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0284c7",
+  "background_color": "#ffffff",
+  "orientation": "portrait"
+}
