@@ -10,6 +10,7 @@ import { generateMonthlyPDF } from './services/pdfGenerator';
 import { AnalysisModal } from './components/AnalysisModal';
 import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { GuideModal } from './components/GuideModal';
+import { InventoryModal } from './components/InventoryModal';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -28,7 +29,8 @@ import {
   FileText,
   Mic,
   Search,
-  HelpCircle
+  HelpCircle,
+  Camera
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -61,6 +63,7 @@ const App: React.FC = () => {
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
@@ -267,6 +270,13 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
              <button
+              onClick={() => setIsInventoryOpen(true)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Escanear Inventario (Foto)"
+            >
+              <Camera size={20} />
+            </button>
+            <button
               onClick={() => setIsGuideOpen(true)}
               className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="Ayuda / Guía"
@@ -556,6 +566,13 @@ const App: React.FC = () => {
         isOpen={isVoiceAssistantOpen}
         onClose={() => setIsVoiceAssistantOpen(false)}
         onRecordCreated={handleVoiceRecordCreated}
+        currentRecords={filteredRecords}
+      />
+
+      <InventoryModal 
+        isOpen={isInventoryOpen}
+        onClose={() => setIsInventoryOpen(false)}
+        currentRecords={filteredRecords}
       />
 
       <GuideModal 

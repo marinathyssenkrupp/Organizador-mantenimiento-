@@ -7,6 +7,19 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// Master Inventory List for Gap Analysis
+const MASTER_INVENTORY = {
+  [Location.MOL_MAL_MARINO]: [
+    "París", "Ripley", "Torre Marina", "Ascensor Panorámico"
+  ],
+  [Location.MARINA_BOULEVARD]: [
+    "Torre Boulevard", "Estacionamiento", "Pasarela", "Ascensor Pasarela", "Montacarga Boulevard"
+  ],
+  [Location.AMA]: [
+    "Torre AMA", "Ascensor HJM", "Ascensor Estacionamiento AMA", "Montacargas de AMA"
+  ]
+};
+
 // --- Analysis Logic ---
 export const analyzeMaintenanceData = async (
   records: MaintenanceRecord[],
@@ -54,7 +67,65 @@ export const analyzeMaintenanceData = async (
   }
 };
 
-// --- Voice Assistant Logic ---
+// --- Visual Inventory Analysis ---
+
+export const analyzeEquipmentImage = async (
+    imageBase64: string, 
+    currentRecords: MaintenanceRecord[]
+): Promise<string> => {
+    const ai = getAIClient();
+    if (!ai) return "Error: API Key no encontrada.";
+
+    // Simplify records to just a list of equipment names that have been maintained
+    const maintainedEquipment = currentRecords.map(r => 
+        `${r.equipmentOrder} (${r.location}) - ${r.date}`
+    );
+
+    // Clean base64 header
+    const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+
+    const prompt = `
+    Actúa como un Supervisor de Mantenimiento experto.
+    
+    Te estoy enviando una imagen que puede ser:
+    1. Una lista o planilla física de equipos.
+    2. Un plano del Mall (Marina, Boulevard o Ama).
+    3. Una foto de un sector con ascensores/escaleras.
+
+    Tu tarea es:
+    1. **Identificar** todos los equipos (ascensores/escaleras) que aparecen o se listan en la imagen.
+    2. **Comparar** esa lista visual con los registros de mantenimiento YA REALIZADOS este mes (lista provista abajo).
+    3. **Generar un reporte** que diga:
+       - Qué equipos de la imagen YA tienen mantención (Status: OK ✅).
+       - Qué equipos de la imagen FALTAN por mantener (Status: PENDIENTE ⚠️).
+    
+    Lista de Mantenciones Realizadas (JSON):
+    ${JSON.stringify(maintainedEquipment)}
+
+    Formato de respuesta sugerido (Markdown):
+    - Resumen General
+    - Lista comparativa
+    - Alerta de equipos críticos faltantes (si los hay en la imagen).
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text || "No se pudo analizar la imagen.";
+    } catch (error) {
+        console.error("Gemini Vision Error:", error);
+        return "Hubo un error al procesar la imagen. Asegúrate de que sea clara.";
+    }
+};
+
+// --- Voice Assistant Logic (Record & Consult) ---
 
 export const processVoiceCommand = async (audioBase64: string): Promise<Partial<MaintenanceRecord> | null> => {
     const ai = getAIClient();
@@ -117,6 +188,57 @@ export const processVoiceCommand = async (audioBase64: string): Promise<Partial<
     }
 };
 
+export const consultPendingStatus = async (
+    audioBase64: string, 
+    currentRecords: MaintenanceRecord[]
+): Promise<string> => {
+    const ai = getAIClient();
+    if (!ai) return "Error de conexión con la IA.";
+
+    const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
+    
+    // Create a simplified list of what has been done
+    const doneList = currentRecords.map(r => ({
+        loc: r.location,
+        eq: r.equipmentOrder
+    }));
+
+    const prompt = `
+    Eres un asistente de voz para una empresa de mantenimiento.
+    
+    CONTEXTO (Inventario Total de Equipos):
+    ${JSON.stringify(MASTER_INVENTORY)}
+    
+    MANTENCIONES REALIZADAS ESTE MES (Lo que ya se hizo):
+    ${JSON.stringify(doneList)}
+
+    INSTRUCCIÓN:
+    1. Escucha la pregunta del usuario en el audio.
+    2. Si pregunta "¿Qué falta?" o por una ubicación específica (ej: "¿Qué falta en Ama?"), compara el Inventario Total con las Mantenciones Realizadas.
+    3. Responde de forma **hablada y natural** (como si fueras una persona).
+    4. Sé conciso. No listes todo si falta mucho, resume (ej: "Faltan 3 equipos en Ama: la Torre y dos ascensores"). Si falta poco, nómbralos.
+    5. Si todo está listo, felicita al equipo.
+    
+    Tu respuesta será leída en voz alta, así que no uses Markdown ni símbolos complejos, solo texto plano en español.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: 'audio/webm', data: cleanBase64 } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text || "No pude analizar los pendientes.";
+    } catch (error) {
+        console.error("Error consulting status:", error);
+        return "Hubo un error al consultar el estado.";
+    }
+};
+
 // --- Help/Guide Assistant Logic ---
 
 export const askAssistant = async (userQuery: string): Promise<string> => {
@@ -136,6 +258,7 @@ export const askAssistant = async (userQuery: string): Promise<string> => {
       4. **Exportar**: Menú "Exportar" para generar PDF (para Drive) o CSV (Excel), compartir por WhatsApp o Correo.
       5. **Análisis IA**: Botón "Analizar" que busca patrones en los datos del mes.
       6. **Notas de Audio**: Se pueden grabar notas de voz dentro de cada registro.
+      7. **Escanear Inventario**: Botón de cámara. Permite subir una foto (lista o plano) para comparar qué equipos faltan por mantener.
     
     Tu trabajo es responder preguntas del usuario sobre cómo usar la app de forma breve, amigable y en español.
     Si te preguntan algo fuera del contexto de la app, indica cortésmente que solo sabes de mantenciones.
