@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Schema } from "@google/genai";
-import { MaintenanceRecord, Location, EquipmentType } from "../types";
+import { MaintenanceRecord, Location, EquipmentType, Shift } from "../types";
 
 const getAIClient = () => {
   const apiKey = process.env.API_KEY;
@@ -136,6 +137,59 @@ export const analyzeEquipmentImage = async (
     }
 };
 
+// --- Shift Schedule Analysis ---
+
+export const analyzeShiftSchedule = async (
+    fileBase64: string,
+    mimeType: string
+): Promise<Shift[]> => {
+    const ai = getAIClient();
+    if (!ai) return [];
+
+    const cleanBase64 = fileBase64.split(',')[1] || fileBase64;
+
+    const prompt = `
+    Analiza esta imagen o documento que contiene una planilla de turnos (work schedule).
+    
+    Objetivo: Extraer quién está de turno (Supervisor o Técnico encargado) para cada fecha detectada.
+    
+    Instrucciones:
+    1. Busca fechas específicas (día y mes). Asume el año actual si no se especifica.
+    2. Busca nombres de personas asociados a esos días.
+    3. Si hay palabras como "Turno", "Supervisor", "Encargado", prioriza esos nombres.
+    4. Convierte las fechas al formato estricto YYYY-MM-DD.
+    
+    Retorna ÚNICAMENTE un JSON array válido. Ejemplo:
+    [
+      { "date": "2024-05-18", "name": "Juan Pérez" },
+      { "date": "2024-05-19", "name": "Maria Gonzalez" }
+    ]
+    `;
+
+    try {
+         const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: mimeType, data: cleanBase64 } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+        
+        const text = response.text;
+        if (!text) return [];
+        return JSON.parse(text) as Shift[];
+
+    } catch (error) {
+        console.error("Error analyzing shift schedule:", error);
+        return [];
+    }
+};
+
 // --- Voice Assistant Logic (Record & Consult) ---
 
 export interface VoiceCommandResult {
@@ -173,7 +227,18 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
         - Ama: Torre, H&M, Jumbo, Rampas, Escaleras.
       Si no, usa texto libre.
     - Tipo: 'Ascensor', 'Escalera Mecánica'.
-    - Técnico: Busca nombres (Jose Krause, Javier Silva, etc).
+    - Técnico: Mapea a uno de estos nombres oficiales si suena similar:
+       - Cristian Guerrero
+       - Diego Vargas
+       - Francisca Chimuelo
+       - Italo Sanhueza
+       - Javier Silva
+       - Jonathan Labbé (o "Jonathan Lave")
+       - Jorge Letelier
+       - José Krause
+       - Julio Pérez
+       - Víctor González
+       - Víctor Jaramillo
     - Equipo: Identificador o número. AHORA SOPORTA MÚLTIPLES NÚMEROS (ej: "1, 2, 3").
       Si el usuario dice "Ascensor 1 y 2", equipmentOrder debe ser "1, 2".
     `;
@@ -335,6 +400,7 @@ export const askAssistant = async (userQuery: string): Promise<string> => {
       5. **Análisis IA**: Botón "Analizar" que busca patrones en los datos del mes.
       6. **Notas de Audio**: Se pueden grabar notas de voz dentro de cada registro.
       7. **Escanear Inventario**: Botón de cámara. Permite subir una foto (lista o plano) para comparar qué equipos faltan por mantener.
+      8. **Carga de Turnos**: En menú "Nuevo" -> "Cargar Turnos". Sube foto o PDF y la IA detecta supervisores asignados por fecha.
     
     Tu trabajo es responder preguntas del usuario sobre cómo usar la app de forma breve, amigable y en español.
     Si te preguntan algo fuera del contexto de la app, indica cortésmente que solo sabes de mantenciones.

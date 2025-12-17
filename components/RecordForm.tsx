@@ -11,16 +11,19 @@ interface RecordFormProps {
 }
 
 // Predefined Data Constants
+// Updated list based on user request (sorted alphabetically)
 const PREDEFINED_TECHNICIANS = [
-  "Jose Krause",
-  "Javier Silva",
-  "Italo Sanhueza",
-  "Diego Vargas",
-  "Victor Jaramillo",
-  "Victor Gonzalez",
-  "Jorge Letelier",
   "Cristian Guerrero",
-  "Julio Perez"
+  "Diego Vargas",
+  "Francisca Chimuelo",
+  "Italo Sanhueza",
+  "Javier Silva",
+  "Jonathan Labbé",
+  "Jorge Letelier",
+  "José Krause",
+  "Julio Pérez",
+  "Víctor González",
+  "Víctor Jaramillo"
 ];
 
 // Specific Sectors for Elevators
@@ -142,7 +145,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
     if (formData.technician && formData.equipmentOrder && formData.date && formData.time) {
       onSave(formData as MaintenanceRecord);
     } else {
-        alert("Por favor completa Técnico y selecciona al menos un Equipo.");
+        alert("Por favor selecciona un Técnico y al menos un Equipo.");
     }
   };
 
@@ -272,18 +275,18 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Técnico</label>
-            <input
-                list="technicians"
+            <select
                 name="technician"
                 required
                 value={formData.technician}
                 onChange={handleChange}
-                placeholder="Nombre"
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
-            />
-            <datalist id="technicians">
-                {PREDEFINED_TECHNICIANS.map(t => <option key={t} value={t} />)}
-            </datalist>
+            >
+                <option value="">-- Seleccionar Técnico --</option>
+                {PREDEFINED_TECHNICIANS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                ))}
+            </select>
           </div>
 
           <div>

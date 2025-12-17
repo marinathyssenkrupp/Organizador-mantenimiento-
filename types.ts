@@ -1,3 +1,4 @@
+
 export enum Location {
   MOL_MAL_MARINO = 'Marina',
   MARINA_BOULEVARD = 'Boulevard',
@@ -20,6 +21,11 @@ export interface MaintenanceRecord {
   equipmentOrder: string; // Identifier/Order of the equipment (Now supports multiple like "1, 2, 3")
   notes?: string;
   audioNote?: string; // Base64 string of the audio recording
+}
+
+export interface Shift {
+  date: string; // YYYY-MM-DD
+  name: string; // Name of the supervisor/technician
 }
 
 export interface MonthOption {

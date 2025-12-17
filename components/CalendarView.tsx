@@ -1,16 +1,18 @@
+
 import React from 'react';
-import { MaintenanceRecord, EquipmentType, Location } from '../types';
-import { User, Play, FileText, ArrowUp, Zap } from 'lucide-react';
+import { MaintenanceRecord, EquipmentType, Location, Shift } from '../types';
+import { User, Play, FileText, ArrowUp, Zap, Shield } from 'lucide-react';
 
 interface CalendarViewProps {
   records: MaintenanceRecord[];
+  shifts?: Shift[]; // Optional prop for shift data
   currentMonth: string; // YYYY-MM
   onPlayAudio: (audioUrl: string) => void;
   onEditRecord: (record: MaintenanceRecord) => void;
   onDayClick: (date: string) => void;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ records, currentMonth, onPlayAudio, onEditRecord, onDayClick }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = [], currentMonth, onPlayAudio, onEditRecord, onDayClick }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -24,6 +26,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, currentMont
     const dayStr = String(day).padStart(2, '0');
     const dateStr = `${currentMonth}-${dayStr}`;
     return records.filter(r => r.date === dateStr);
+  };
+  
+  const getShiftForDay = (day: number) => {
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${currentMonth}-${dayStr}`;
+      return shifts.find(s => s.date === dateStr);
   };
 
   const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -78,6 +86,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, currentMont
 
         {days.map(day => {
           const dayRecords = getRecordsForDay(day);
+          const shift = getShiftForDay(day);
           const hasRecords = dayRecords.length > 0;
           const dayStr = String(day).padStart(2, '0');
           const dateStr = `${currentMonth}-${dayStr}`;
@@ -95,9 +104,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, currentMont
               onClick={() => onDayClick(dateStr)}
               className="min-h-[140px] bg-white dark:bg-gray-800 p-1 sm:p-2 relative group cursor-pointer transition-all duration-200 hover:z-10 hover:shadow-lg hover:scale-[1.02] active:scale-95 origin-center"
             >
-              <span className={`text-sm font-semibold block mb-1 transition-colors ${hasRecords ? 'text-brand-700 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                {day}
-              </span>
+              <div className="flex justify-between items-start mb-1">
+                 <span className={`text-sm font-semibold transition-colors ${hasRecords ? 'text-brand-700 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                    {day}
+                 </span>
+                 
+                 {/* SHIFT BADGE */}
+                 {shift && (
+                     <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold border border-amber-200 dark:border-amber-800 shadow-sm max-w-[70%] truncate">
+                         <Shield size={8} fill="currentColor" />
+                         <span className="truncate">{shift.name.split(' ')[0]}</span>
+                     </div>
+                 )}
+              </div>
               
               <div className="space-y-2">
                 {Object.keys(recordsByLocation).map(loc => {

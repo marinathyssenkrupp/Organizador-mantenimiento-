@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { MaintenanceRecord, Location, EquipmentType } from './types';
-import { getRecords, saveRecord, deleteRecord, updateRecord } from './services/storage';
+import { MaintenanceRecord, Location, EquipmentType, Shift } from './types';
+import { getRecords, saveRecord, deleteRecord, updateRecord, getShifts, saveShifts } from './services/storage';
 import { RecordForm } from './components/RecordForm';
 import { MaintenanceTable } from './components/MaintenanceTable';
 import { CalendarView } from './components/CalendarView';
@@ -12,7 +13,7 @@ import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { GuideModal } from './components/GuideModal';
 import { InventoryModal } from './components/InventoryModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
-import { FloatingActionMenu } from './components/FloatingActionMenu';
+import { ShiftUploadModal } from './components/ShiftUploadModal';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -30,20 +31,25 @@ import {
   Mail,
   FileText,
   Search,
-  HelpCircle,
-  Camera
+  Camera,
+  ChevronDown,
+  Mic,
+  Bot,
+  FilePlus,
+  X,
+  Calendar
 } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]); // New State for Shifts
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [selectedLocation, setSelectedLocation] = useState<Location | 'ALL'>('ALL'); 
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [activeAudio, setActiveAudio] = useState<string | null>(null);
   const [showShareMenu, setShowShareMenu] = useState(false);
   
   // Theme State
@@ -64,15 +70,17 @@ const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState("");
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   
-  // Controlled via Menu
+  // Menu States
+  const [showNewMenu, setShowNewMenu] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [isShiftUploadOpen, setIsShiftUploadOpen] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
     setRecords(getRecords());
+    setShifts(getShifts());
   }, []);
 
   useEffect(() => {
@@ -103,6 +111,19 @@ const App: React.FC = () => {
     });
   }, [records, selectedMonth, selectedLocation, searchTerm]);
 
+  // Helper to count individual units (e.g. "1, 2" counts as 2 units)
+  const calculateTotalUnits = (data: MaintenanceRecord[], type: EquipmentType) => {
+    return data
+      .filter(r => r.equipmentType === type)
+      .reduce((total, record) => {
+         // Extract digits from the string (e.g. "1, 2, 3")
+         const matches = record.equipmentOrder.match(/\d+/g);
+         // If digits exist, add count. If not (e.g. "Montacargas"), add 1.
+         const count = matches ? matches.length : 1;
+         return total + count;
+      }, 0);
+  };
+
   const handleSaveRecord = (record: MaintenanceRecord) => {
     let updated;
     if (editingRecord) {
@@ -113,6 +134,11 @@ const App: React.FC = () => {
     setRecords(updated);
     setIsFormOpen(false);
     setEditingRecord(null);
+  };
+
+  const handleSaveShifts = (newShifts: Shift[]) => {
+      const updatedShifts = saveShifts(newShifts);
+      setShifts(updatedShifts);
   };
   
   const handleVoiceRecordCreated = (record: MaintenanceRecord) => {
@@ -257,13 +283,13 @@ const App: React.FC = () => {
       alert("No hay registros para compartir.");
       return;
     }
-    const elevators = filteredRecords.filter(r => r.equipmentType === EquipmentType.ELEVATOR).length;
-    const escalators = filteredRecords.filter(r => r.equipmentType === EquipmentType.ESCALATOR).length;
+    const elevators = calculateTotalUnits(filteredRecords, EquipmentType.ELEVATOR);
+    const escalators = calculateTotalUnits(filteredRecords, EquipmentType.ESCALATOR);
     
     const text = `*Reporte de Mantenciones - ${selectedMonth}*\n\n` +
                  `📍 Ubicación: ${selectedLocation === 'ALL' ? 'Todas' : selectedLocation}\n` +
-                 `🛗 Ascensores: ${elevators}\n` +
-                 `🪜 Escaleras: ${escalators}\n` +
+                 `🛗 Unidades Ascensores: ${elevators}\n` +
+                 `🪜 Unidades Escaleras: ${escalators}\n` +
                  `✅ Total Registros: ${filteredRecords.length}\n\n` +
                  `Enviado desde Gestor de Mantenciones.`;
                  
@@ -290,49 +316,43 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col font-sans transition-colors duration-200 relative">
       
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-brand-600 dark:bg-brand-700 text-white p-2 rounded-lg">
-              <ClipboardList size={24} />
+              <ClipboardList size={28} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight hidden sm:block">Gestor de Mantenciones</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight hidden sm:block">Gestor de Mantenciones</h1>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight sm:hidden">Gestor</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Planilla de Control Vertical</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+
+          <div className="flex items-center gap-3">
              <button
               onClick={() => setIsInventoryOpen(true)}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden md:block"
               title="Escanear Inventario (Foto)"
             >
-              <Camera size={20} />
+              <Camera size={22} />
             </button>
-            <button
-              onClick={() => setIsGuideOpen(true)}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="Ayuda / Guía"
-            >
-              <HelpCircle size={20} />
-            </button>
-
+            
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden md:block"
               title={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              {darkMode ? <Sun size={22} /> : <Moon size={22} />}
             </button>
 
             {/* Export/Share Menu */}
             <div className="relative">
                 <button 
                     onClick={() => setShowShareMenu(!showShareMenu)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                 >
-                    <Share2 size={16} />
+                    <Share2 size={18} />
                     <span className="hidden sm:inline">Exportar</span>
                 </button>
                 
@@ -361,23 +381,93 @@ const App: React.FC = () => {
                 )}
             </div>
 
-             <button
-              onClick={handleAnalyze}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"
-            >
-              <Sparkles size={16} />
-              Analizar
-            </button>
-            <button
-              onClick={() => {
-                  setEditingRecord(null);
-                  setIsFormOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
-            >
-              <PlusCircle size={18} />
-              <span className="hidden sm:inline">Nuevo</span>
-            </button>
+            {/* BIG NEW BUTTON WITH DROPDOWN */}
+            <div className="relative ml-2">
+                <button
+                  onClick={() => setShowNewMenu(!showNewMenu)}
+                  className={`flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-base font-bold rounded-xl shadow-lg shadow-brand-200 dark:shadow-none transition-all transform hover:scale-105 ${showNewMenu ? 'scale-105' : ''}`}
+                >
+                  <PlusCircle size={22} />
+                  <span>Nuevo</span>
+                  <ChevronDown size={18} className={`transition-transform duration-200 ${showNewMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showNewMenu && (
+                    <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowNewMenu(false)}></div>
+                    <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-fade-in origin-top-right">
+                        <div className="p-2">
+                            <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase">Crear Registro</div>
+                            
+                            <button 
+                                onClick={() => {
+                                    setEditingRecord(null);
+                                    setIsFormOpen(true);
+                                    setShowNewMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center gap-3 transition-colors"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center">
+                                    <FilePlus size={18} />
+                                </div>
+                                <div>
+                                    <span className="block font-bold">Manual</span>
+                                    <span className="text-xs text-gray-400">Formulario completo</span>
+                                </div>
+                            </button>
+
+                            <button 
+                                onClick={() => {
+                                    setIsVoiceAssistantOpen(true);
+                                    setShowNewMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center gap-3 transition-colors mt-1"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center">
+                                    <Mic size={18} />
+                                </div>
+                                <div>
+                                    <span className="block font-bold">Dictado por Voz</span>
+                                    <span className="text-xs text-indigo-500 font-semibold">Recomendado</span>
+                                </div>
+                            </button>
+                            
+                            <button 
+                                onClick={() => {
+                                    setIsShiftUploadOpen(true);
+                                    setShowNewMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center gap-3 transition-colors mt-1"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+                                    <Calendar size={18} />
+                                </div>
+                                <div>
+                                    <span className="block font-bold">Cargar Turnos (IA)</span>
+                                    <span className="text-xs text-amber-500 font-semibold">Foto / PDF</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="h-px bg-gray-100 dark:bg-gray-700 mx-2"></div>
+
+                        <div className="p-2 bg-gray-50 dark:bg-gray-800/50">
+                             <div className="px-3 py-1 text-xs font-bold text-gray-400 uppercase">Asistencia</div>
+                             <button 
+                                onClick={() => {
+                                    setIsGuideOpen(true);
+                                    setShowNewMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-3 transition-colors"
+                            >
+                                <Bot size={16} />
+                                <span>Consultar a la IA</span>
+                            </button>
+                        </div>
+                    </div>
+                    </>
+                )}
+            </div>
           </div>
         </div>
       </header>
@@ -462,35 +552,45 @@ const App: React.FC = () => {
                <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex-1 md:flex-none">
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase block">Ascensores</span>
                   <span className="text-xl font-bold text-gray-800 dark:text-white">
-                      {filteredRecords.filter(r => r.equipmentType === EquipmentType.ELEVATOR).length}
+                      {calculateTotalUnits(filteredRecords, EquipmentType.ELEVATOR)}
                   </span>
                </div>
                 <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex-1 md:flex-none">
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase block">Escaleras</span>
                   <span className="text-xl font-bold text-gray-800 dark:text-white">
-                       {filteredRecords.filter(r => r.equipmentType === EquipmentType.ESCALATOR).length}
+                       {calculateTotalUnits(filteredRecords, EquipmentType.ESCALATOR)}
                   </span>
                </div>
             </div>
 
-            {/* View Toggle */}
-            <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex">
-                <button 
-                    onClick={() => setViewMode('calendar')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
-                        viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
+            <div className="flex items-center gap-3">
+                 <button
+                  onClick={handleAnalyze}
+                  className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"
                 >
-                    <CalendarIcon size={16} /> Calendario
+                  <Sparkles size={16} />
+                  Analizar
                 </button>
-                <button 
-                    onClick={() => setViewMode('list')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
-                        viewMode === 'list' ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
-                >
-                    <Table size={16} /> Lista
-                </button>
+
+                {/* View Toggle */}
+                <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex">
+                    <button 
+                        onClick={() => setViewMode('calendar')}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
+                            viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        <CalendarIcon size={16} /> Calendario
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('list')}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
+                            viewMode === 'list' ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        <Table size={16} /> Lista
+                    </button>
+                </div>
             </div>
           </div>
 
@@ -519,18 +619,18 @@ const App: React.FC = () => {
                   </div>
                   <CalendarView 
                       records={filteredRecords} 
+                      shifts={shifts}
                       currentMonth={selectedMonth}
                       onPlayAudio={playAudio}
                       onEditRecord={handleEdit}
                       onDayClick={(date) => {
                           const recordsForDay = filteredRecords.filter(r => r.date === date);
-                          if (recordsForDay.length > 0) {
+                          const shiftForDay = shifts.find(s => s.date === date);
+                          if (recordsForDay.length > 0 || shiftForDay) {
                               setSelectedDayDetail(date);
                           } else {
                               // Optional: Open form for that day
                               setEditingRecord(null);
-                              // We could pass initialDate to form
-                              // setIsFormOpen(true);
                           }
                       }}
                   />
@@ -556,12 +656,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Floating Action Menu (Unified) */}
-      <FloatingActionMenu 
-        onOpenVoice={() => setIsVoiceAssistantOpen(true)}
-        onOpenChat={() => setIsGuideOpen(true)}
-      />
-
       {/* Modals */}
       {isFormOpen && (
         <RecordForm 
@@ -578,6 +672,7 @@ const App: React.FC = () => {
           <DayDetailModal 
             date={selectedDayDetail}
             records={filteredRecords.filter(r => r.date === selectedDayDetail)}
+            shift={shifts.find(s => s.date === selectedDayDetail)}
             onClose={() => setSelectedDayDetail(null)}
             onEdit={(record) => {
                 handleEdit(record);
@@ -612,6 +707,12 @@ const App: React.FC = () => {
         isOpen={isInventoryOpen}
         onClose={() => setIsInventoryOpen(false)}
         currentRecords={filteredRecords}
+      />
+
+      <ShiftUploadModal 
+        isOpen={isShiftUploadOpen}
+        onClose={() => setIsShiftUploadOpen(false)}
+        onSaveShifts={handleSaveShifts}
       />
 
       <GuideModal 
