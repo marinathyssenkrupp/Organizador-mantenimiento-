@@ -122,6 +122,29 @@ const App: React.FC = () => {
       }
   };
 
+  const handleVoiceRecordDeleted = (criteria: Partial<MaintenanceRecord>): boolean => {
+    // Find record to delete
+    // Match criteria: Date (exact), EquipmentOrder (Fuzzy/Includes), Location (Exact if provided)
+    
+    const targetDate = criteria.date || new Date().toISOString().split('T')[0];
+    const targetEquipment = criteria.equipmentOrder?.toLowerCase() || '';
+    
+    const recordToDelete = records.find(r => {
+        const dateMatch = r.date === targetDate;
+        // Simple fuzzy match for equipment name
+        const eqMatch = targetEquipment ? r.equipmentOrder.toLowerCase().includes(targetEquipment) : false;
+        
+        return dateMatch && eqMatch;
+    });
+
+    if (recordToDelete) {
+        const updated = deleteRecord(recordToDelete.id);
+        setRecords(updated);
+        return true;
+    }
+    return false;
+  };
+
   const handleDeleteRecord = (id: string) => {
     if (confirm('¿Estás seguro de eliminar este registro?')) {
       const updated = deleteRecord(id);
@@ -576,6 +599,7 @@ const App: React.FC = () => {
         isOpen={isVoiceAssistantOpen}
         onClose={() => setIsVoiceAssistantOpen(false)}
         onRecordCreated={handleVoiceRecordCreated}
+        onRecordDeleted={handleVoiceRecordDeleted}
         currentRecords={filteredRecords}
       />
 

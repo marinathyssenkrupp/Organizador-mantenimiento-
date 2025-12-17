@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, X, Loader2, CheckCircle2, AlertCircle, StopCircle, HelpCircle, FilePlus, Volume2 } from 'lucide-react';
+import { Mic, X, Loader2, CheckCircle2, AlertCircle, StopCircle, HelpCircle, FilePlus, Volume2, Trash2 } from 'lucide-react';
 import { processVoiceCommand, consultPendingStatus } from '../services/geminiService';
 import { MaintenanceRecord, Location, EquipmentType } from '../types';
 
@@ -7,12 +7,13 @@ interface VoiceAssistantModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRecordCreated: (record: MaintenanceRecord) => void;
+  onRecordDeleted: (criteria: Partial<MaintenanceRecord>) => boolean;
   currentRecords: MaintenanceRecord[];
 }
 
-export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen, onClose, onRecordCreated, currentRecords }) => {
+export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen, onClose, onRecordCreated, onRecordDeleted, currentRecords }) => {
   const [mode, setMode] = useState<'create' | 'consult'>('create');
-  const [status, setStatus] = useState<'idle' | 'recording' | 'processing' | 'success' | 'speaking' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'recording' | 'processing' | 'success' | 'deleted' | 'speaking' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<Partial<MaintenanceRecord> | null>(null);
   const [consultResponse, setConsultResponse] = useState<string | null>(null);
@@ -84,23 +85,39 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
         if (mode === 'create') {
             const result = await processVoiceCommand(base64Audio);
             if (result) {
-                setTranscript(result);
-                setStatus('success');
                 
-                setTimeout(() => {
-                    const newRecord: MaintenanceRecord = {
-                        id: crypto.randomUUID(),
-                        technician: result.technician || 'Desconocido',
-                        date: result.date || new Date().toISOString().split('T')[0],
-                        time: result.time || '09:00',
-                        location: (result.location as Location) || Location.MOL_MAL_MARINO,
-                        equipmentType: (result.equipmentType as EquipmentType) || EquipmentType.ELEVATOR,
-                        equipmentOrder: result.equipmentOrder || 'General',
-                        notes: result.notes || 'Generado por Asistente de Voz',
-                        audioNote: base64Audio
-                    };
-                    onRecordCreated(newRecord);
-                }, 1500);
+                if (result.intent === 'DELETE') {
+                    // Handle Deletion
+                    const success = onRecordDeleted(result.data);
+                    if (success) {
+                        setStatus('deleted');
+                        setTranscript(result.data);
+                        speakText(`Eliminado el registro de ${result.data.equipmentOrder || 'el equipo'}.`);
+                    } else {
+                        setStatus('error');
+                        setErrorMessage("No encontré un registro que coincida.");
+                        speakText("No encontré ese registro para borrar.");
+                    }
+                } else {
+                    // Handle Creation
+                    setTranscript(result.data);
+                    setStatus('success');
+                    
+                    setTimeout(() => {
+                        const newRecord: MaintenanceRecord = {
+                            id: crypto.randomUUID(),
+                            technician: result.data.technician || 'Desconocido',
+                            date: result.data.date || new Date().toISOString().split('T')[0],
+                            time: result.data.time || '09:00',
+                            location: (result.data.location as Location) || Location.MOL_MAL_MARINO,
+                            equipmentType: (result.data.equipmentType as EquipmentType) || EquipmentType.ELEVATOR,
+                            equipmentOrder: result.data.equipmentOrder || 'General',
+                            notes: result.data.notes || 'Generado por Asistente de Voz',
+                            audioNote: base64Audio
+                        };
+                        onRecordCreated(newRecord);
+                    }, 1500);
+                }
 
             } else {
                 setStatus('error');
@@ -140,7 +157,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 onClick={() => { setMode('create'); setStatus('idle'); setConsultResponse(null); }}
                 className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${mode === 'create' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 dark:text-gray-500'}`}
             >
-                <FilePlus size={16} /> Registrar
+                <FilePlus size={16} /> Gestión (Crear/Borrar)
             </button>
             <button 
                  onClick={() => { setMode('consult'); setStatus('idle'); setTranscript(null); }}
@@ -152,11 +169,11 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
 
         <div className="pt-8 pb-4 px-6 text-center w-full">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-                {mode === 'create' ? 'Dictar Mantención' : 'Consultar Pendientes'}
+                {mode === 'create' ? 'Dictar o Borrar' : 'Consultar Pendientes'}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
                 {mode === 'create' 
-                    ? '"José revisó el ascensor Torre Marina hoy..."'
+                    ? '"José revisó la Torre..." o "Borra lo de la Torre hoy"'
                     : '"¿Qué equipos faltan en el Boulevard?"'
                 }
             </p>
@@ -201,11 +218,21 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                     <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mb-2">
                         <CheckCircle2 size={40} />
                     </div>
-                    <h4 className="text-lg font-bold text-green-700 dark:text-green-400">¡Entendido!</h4>
+                    <h4 className="text-lg font-bold text-green-700 dark:text-green-400">¡Creado!</h4>
                     <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg mt-2 text-xs text-left max-w-[280px] w-full text-gray-700 dark:text-gray-200">
                         <p><strong>Tec:</strong> {transcript?.technician}</p>
                         <p><strong>Equipo:</strong> {transcript?.equipmentOrder}</p>
                     </div>
+                </div>
+            )}
+
+            {status === 'deleted' && mode === 'create' && (
+                <div className="flex flex-col items-center animate-scale-in">
+                    <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-2">
+                        <Trash2 size={40} />
+                    </div>
+                    <h4 className="text-lg font-bold text-red-700 dark:text-red-400">¡Eliminado!</h4>
+                    <p className="text-xs text-gray-500 mt-2">Se borró el registro coincidente.</p>
                 </div>
             )}
 

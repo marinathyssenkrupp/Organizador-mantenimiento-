@@ -127,7 +127,12 @@ export const analyzeEquipmentImage = async (
 
 // --- Voice Assistant Logic (Record & Consult) ---
 
-export const processVoiceCommand = async (audioBase64: string): Promise<Partial<MaintenanceRecord> | null> => {
+export interface VoiceCommandResult {
+    intent: 'CREATE' | 'DELETE';
+    data: Partial<MaintenanceRecord>;
+}
+
+export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCommandResult | null> => {
     const ai = getAIClient();
     if (!ai) throw new Error("API Key no encontrada");
 
@@ -135,20 +140,25 @@ export const processVoiceCommand = async (audioBase64: string): Promise<Partial<
     const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
 
     const prompt = `
-    Escucha este audio de un técnico de mantenimiento y extrae los detalles para agendar una mantención.
+    Escucha este audio de un técnico de mantenimiento.
     
     Fecha actual: ${new Date().toISOString().split('T')[0]}
-    Hora actual: ${new Date().toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}
     
-    Reglas de Extracción:
-    1. **Ubicación**: Debe ser exactamente una de estas: 'Marina', 'Boulevard', 'Ama'. Si dice "Mall", "Mol" o "Principal", usa 'Marina'.
-    2. **Tipo**: 'Ascensor' o 'Escalera Mecánica'.
-    3. **Técnico**: Busca nombres como Jose Krause, Javier Silva, Italo Sanhueza, Diego Vargas, Victor Jaramillo, Victor Gonzalez, Jorge Letelier, Cristian Guerrero, Julio Perez. Si no coincide exacto, usa el más parecido.
-    4. **Fecha/Hora**: Si dice "hoy", usa la fecha actual. Si no especifica hora, usa la hora actual. Formato Fecha: YYYY-MM-DD. Formato Hora: HH:mm.
-    5. **Equipo**: El nombre del equipo (ej: Torre Marina, Ripley, Estacionamiento).
-    6. **Notas**: Cualquier detalle técnico extra (falla de frenos, revisión mensual, ruidos).
+    Tu tarea es determinar la INTENCIÓN del usuario:
+    1. **CREATE**: Si está dictando una nueva mantención (ej: "José revisó el ascensor").
+    2. **DELETE**: Si quiere borrar o eliminar un registro (ej: "Borra la mantención de la Torre Marina", "Me equivoqué, elimina lo de hoy").
 
-    Devuelve un JSON.
+    Extrae los datos en JSON.
+
+    Reglas para DELETE:
+    - Necesitamos saber QUÉ borrar. Extrae 'equipmentOrder', 'date' y 'location' para poder encontrar el registro.
+    - Si dice "hoy", usa la fecha actual.
+
+    Reglas para CREATE:
+    - Ubicación: 'Marina', 'Boulevard', 'Ama'.
+    - Tipo: 'Ascensor', 'Escalera Mecánica'.
+    - Técnico: Busca nombres (Jose Krause, Javier Silva, etc).
+    - Equipo: Nombre del equipo.
     `;
 
     try {
@@ -165,15 +175,21 @@ export const processVoiceCommand = async (audioBase64: string): Promise<Partial<
                 responseSchema: {
                     type: "OBJECT",
                     properties: {
-                        technician: { type: "STRING" },
-                        location: { type: "STRING", enum: ["Marina", "Boulevard", "Ama"] },
-                        equipmentType: { type: "STRING", enum: ["Ascensor", "Escalera Mecánica"] },
-                        date: { type: "STRING" },
-                        time: { type: "STRING" },
-                        equipmentOrder: { type: "STRING" },
-                        notes: { type: "STRING" }
+                        intent: { type: "STRING", enum: ["CREATE", "DELETE"] },
+                        data: {
+                            type: "OBJECT",
+                            properties: {
+                                technician: { type: "STRING" },
+                                location: { type: "STRING", enum: ["Marina", "Boulevard", "Ama"] },
+                                equipmentType: { type: "STRING", enum: ["Ascensor", "Escalera Mecánica"] },
+                                date: { type: "STRING" },
+                                time: { type: "STRING" },
+                                equipmentOrder: { type: "STRING" },
+                                notes: { type: "STRING" }
+                            }
+                        }
                     },
-                    required: ["technician", "location", "equipmentType", "date", "time", "equipmentOrder"]
+                    required: ["intent", "data"]
                 }
             }
         });
@@ -181,7 +197,7 @@ export const processVoiceCommand = async (audioBase64: string): Promise<Partial<
         const jsonText = response.text;
         if (!jsonText) return null;
         
-        return JSON.parse(jsonText);
+        return JSON.parse(jsonText) as VoiceCommandResult;
     } catch (error) {
         console.error("Error processing voice command:", error);
         return null;
