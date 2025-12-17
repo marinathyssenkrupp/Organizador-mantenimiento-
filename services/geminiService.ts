@@ -151,18 +151,21 @@ export const analyzeShiftSchedule = async (
     const prompt = `
     Analiza esta imagen o documento que contiene una planilla de turnos (work schedule).
     
-    Objetivo: Extraer quién está de turno (Supervisor o Técnico encargado) para cada fecha detectada.
+    Objetivo: Extraer Supervisores y Técnicos asignados por fecha, distinguiendo si es turno de DÍA o de NOCHE.
     
-    Instrucciones:
-    1. Busca fechas específicas (día y mes). Asume el año actual si no se especifica.
-    2. Busca nombres de personas asociados a esos días.
-    3. Si hay palabras como "Turno", "Supervisor", "Encargado", prioriza esos nombres.
-    4. Convierte las fechas al formato estricto YYYY-MM-DD.
+    Instrucciones Avanzadas:
+    1. Busca fechas (convertir a YYYY-MM-DD).
+    2. Busca nombres de personas.
+    3. **Roles**: Si dice "Supervisor", "Sup", "Encargado", asígnalo como 'Supervisor'. Si no, 'Técnico'.
+    4. **Horario**: 
+       - Si la planilla tiene columnas o secciones que dicen "Noche", "Night", "22:00", "Turno B", marca 'shiftType' como 'Noche'.
+       - Si es horario normal, "Día", "Mañana", marca 'shiftType' como 'Día'.
+       - Si es Fin de Semana, asume 'Día' a menos que se especifique lo contrario.
     
-    Retorna ÚNICAMENTE un JSON array válido. Ejemplo:
+    Retorna JSON Array:
     [
-      { "date": "2024-05-18", "name": "Juan Pérez" },
-      { "date": "2024-05-19", "name": "Maria Gonzalez" }
+      { "date": "2024-12-17", "name": "Julio Pérez", "role": "Técnico", "shiftType": "Noche" },
+      { "date": "2024-12-18", "name": "Eduardo Leal", "role": "Supervisor", "shiftType": "Día" }
     ]
     `;
 

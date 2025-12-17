@@ -25,7 +25,9 @@ export interface MaintenanceRecord {
 
 export interface Shift {
   date: string; // YYYY-MM-DD
-  name: string; // Name of the supervisor/technician
+  name: string;
+  role: 'Supervisor' | 'Técnico'; // New
+  shiftType: 'Día' | 'Noche'; // New
 }
 
 export interface MonthOption {

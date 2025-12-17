@@ -14,6 +14,7 @@ import { GuideModal } from './components/GuideModal';
 import { InventoryModal } from './components/InventoryModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { ShiftUploadModal } from './components/ShiftUploadModal';
+import { ShiftTicker } from './components/ShiftTicker';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -470,6 +471,10 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* SHIFT TICKER - MINI SCREEN */}
+        <ShiftTicker shifts={shifts} />
+
       </header>
 
       {/* Main Content */}
@@ -619,7 +624,7 @@ const App: React.FC = () => {
                   </div>
                   <CalendarView 
                       records={filteredRecords} 
-                      shifts={shifts}
+                      // shifts prop removed
                       currentMonth={selectedMonth}
                       onPlayAudio={playAudio}
                       onEditRecord={handleEdit}

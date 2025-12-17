@@ -5,14 +5,14 @@ import { User, Play, FileText, ArrowUp, Zap, Shield } from 'lucide-react';
 
 interface CalendarViewProps {
   records: MaintenanceRecord[];
-  shifts?: Shift[]; // Optional prop for shift data
+  // shifts prop removed as we don't display them here anymore
   currentMonth: string; // YYYY-MM
   onPlayAudio: (audioUrl: string) => void;
   onEditRecord: (record: MaintenanceRecord) => void;
   onDayClick: (date: string) => void;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = [], currentMonth, onPlayAudio, onEditRecord, onDayClick }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ records, currentMonth, onPlayAudio, onEditRecord, onDayClick }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -26,12 +26,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = []
     const dayStr = String(day).padStart(2, '0');
     const dateStr = `${currentMonth}-${dayStr}`;
     return records.filter(r => r.date === dateStr);
-  };
-  
-  const getShiftForDay = (day: number) => {
-      const dayStr = String(day).padStart(2, '0');
-      const dateStr = `${currentMonth}-${dayStr}`;
-      return shifts.find(s => s.date === dateStr);
   };
 
   const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -78,7 +72,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = []
         ))}
       </div>
       <div className="grid grid-cols-7 auto-rows-fr bg-gray-100/50 dark:bg-gray-900/50 gap-px border-l border-t border-gray-200 dark:border-gray-700">
-        {/* Gap used for borders, background creates the line effect */}
         
         {blanks.map(i => (
           <div key={`blank-${i}`} className="min-h-[140px] bg-white dark:bg-gray-800 p-2 opacity-50"></div>
@@ -86,7 +79,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = []
 
         {days.map(day => {
           const dayRecords = getRecordsForDay(day);
-          const shift = getShiftForDay(day);
           const hasRecords = dayRecords.length > 0;
           const dayStr = String(day).padStart(2, '0');
           const dateStr = `${currentMonth}-${dayStr}`;
@@ -108,14 +100,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ records, shifts = []
                  <span className={`text-sm font-semibold transition-colors ${hasRecords ? 'text-brand-700 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
                     {day}
                  </span>
-                 
-                 {/* SHIFT BADGE */}
-                 {shift && (
-                     <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold border border-amber-200 dark:border-amber-800 shadow-sm max-w-[70%] truncate">
-                         <Shield size={8} fill="currentColor" />
-                         <span className="truncate">{shift.name.split(' ')[0]}</span>
-                     </div>
-                 )}
+                 {/* SHIFT BADGE REMOVED */}
               </div>
               
               <div className="space-y-2">

@@ -52,12 +52,27 @@ export const getShifts = (): Shift[] => {
 export const saveShifts = (newShifts: Shift[]): Shift[] => {
   const currentShifts = getShifts();
   
-  // Merge strategies: Overwrite if date exists, append if new
-  const shiftsMap = new Map<string, string>();
-  currentShifts.forEach(s => shiftsMap.set(s.date, s.name));
-  newShifts.forEach(s => shiftsMap.set(s.date, s.name));
+  // Merge strategies: Overwrite if date+shiftType exists, append if new
+  const shiftsMap = new Map<string, Shift>();
+
+  const getKey = (s: Shift) => `${s.date}_${s.shiftType}`;
+
+  currentShifts.forEach(s => {
+    // Migration for legacy data (missing role/shiftType)
+    const safeShift: Shift = {
+        date: s.date,
+        name: s.name,
+        role: s.role || 'Supervisor',
+        shiftType: s.shiftType || 'Día'
+    };
+    shiftsMap.set(getKey(safeShift), safeShift);
+  });
+
+  newShifts.forEach(s => {
+    shiftsMap.set(getKey(s), s);
+  });
   
-  const mergedShifts: Shift[] = Array.from(shiftsMap.entries()).map(([date, name]) => ({ date, name }));
+  const mergedShifts = Array.from(shiftsMap.values());
   
   localStorage.setItem(SHIFTS_KEY, JSON.stringify(mergedShifts));
   return mergedShifts;
