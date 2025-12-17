@@ -30,7 +30,8 @@ import {
   Mic,
   Search,
   HelpCircle,
-  Camera
+  Camera,
+  Bot
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -521,6 +522,15 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Floating Action Button for Chat Assistant */}
+      <button
+        onClick={() => setIsGuideOpen(true)}
+        className="fixed bottom-24 right-6 w-12 h-12 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-full shadow-lg border border-indigo-100 dark:border-gray-700 flex items-center justify-center transition-transform hover:scale-110 z-40"
+        title="Asistente de Ayuda (Chat)"
+      >
+        <Bot size={24} />
+      </button>
 
       {/* Floating Action Button for Voice Assistant */}
       <button
