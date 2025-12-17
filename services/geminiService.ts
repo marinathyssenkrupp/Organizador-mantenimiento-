@@ -8,15 +8,25 @@ const getAIClient = () => {
 };
 
 // Master Inventory List for Gap Analysis
+// Updated with specific sub-sectors for elevators AND escalators
 const MASTER_INVENTORY = {
   [Location.MOL_MAL_MARINO]: [
-    "París", "Ripley", "Torre Marina", "Ascensor Panorámico"
+    // Elevators
+    "Ripley", "París", "Torre Marina", "Ascensor Panorámico", "Cine", "Montacargas 14 Norte", "Montacargas 15 Norte",
+    // Escalators/Other
+    "Gimnasio", "Sector Patio Comida", "Sector Cruz Verde"
   ],
   [Location.MARINA_BOULEVARD]: [
-    "Torre Boulevard", "Estacionamiento", "Pasarela", "Ascensor Pasarela", "Montacarga Boulevard"
+    // Elevators
+    "Torre Boulevard", "Estacionamientos Otis", "Pasarela Boulevard", "Montacarga Boulevard",
+    // Escalators/Other
+    "Primer Piso", "Segundo Piso", "Tercer Piso", "Pasarelas"
   ],
   [Location.AMA]: [
-    "Torre AMA", "Ascensor HJM", "Ascensor Estacionamiento AMA", "Montacargas de AMA"
+    // Elevators
+    "Torre AMA", "Ascensores H&M", "Estacionamientos Torre Ama", "Ascensores Jumbo", "Montacargas de AMA",
+    // Escalators/Other
+    "Rampas", "Escaleras Mecánicas", "Sector Jumbo"
   ]
 };
 
@@ -79,7 +89,7 @@ export const analyzeEquipmentImage = async (
 
     // Simplify records to just a list of equipment names that have been maintained
     const maintainedEquipment = currentRecords.map(r => 
-        `${r.equipmentOrder} (${r.location}) - ${r.date}`
+        `${r.equipmentOrder} (${r.location} - ${r.sector || 'General'}) - ${r.date}`
     );
 
     // Clean base64 header
@@ -157,7 +167,11 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
 
     Reglas para CREATE:
     - Ubicación: 'Marina', 'Boulevard', 'Ama'.
-    - Sector: Campo de texto libre para área específica (ej: "Patio de Comidas", "Ala Norte", "Ripley").
+    - Sector: Intenta mapear a estos valores si suena parecido: 
+        - Marina: Ripley, París, Panorámico, Cine, Torre Marina, Montacargas, Gimnasio, Patio Comida, Cruz Verde.
+        - Boulevard: Torre, Estacionamientos, Pasarela, Montacarga, Pisos (1,2,3).
+        - Ama: Torre, H&M, Jumbo, Rampas, Escaleras.
+      Si no, usa texto libre.
     - Tipo: 'Ascensor', 'Escalera Mecánica'.
     - Técnico: Busca nombres (Jose Krause, Javier Silva, etc).
     - Equipo: Identificador o número. AHORA SOPORTA MÚLTIPLES NÚMEROS (ej: "1, 2, 3").

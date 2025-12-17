@@ -23,8 +23,54 @@ const PREDEFINED_TECHNICIANS = [
   "Julio Perez"
 ];
 
-// Generate numbers 1 to 22
-const EQUIPMENT_NUMBERS = Array.from({ length: 22 }, (_, i) => (i + 1).toString());
+// Specific Sectors for Elevators
+const ELEVATOR_SECTORS: Record<Location, string[]> = {
+  [Location.MOL_MAL_MARINO]: [
+    "Ripley",
+    "París",
+    "Panorámico",
+    "Cine",
+    "Torre Marina",
+    "Montacargas 14 Norte",
+    "Montacargas 15 Norte"
+  ],
+  [Location.MARINA_BOULEVARD]: [
+    "Torre Boulevard",
+    "Estacionamientos Otis",
+    "Montacargas Boulevard",
+    "Pasarela Boulevard"
+  ],
+  [Location.AMA]: [
+    "Torre Ama",
+    "Ascensores H&M",
+    "Montacargas Ama",
+    "Estacionamientos Torre Ama",
+    "Ascensores Jumbo"
+  ]
+};
+
+// Specific Sectors for Escalators
+const ESCALATOR_SECTORS: Record<Location, string[]> = {
+  [Location.MOL_MAL_MARINO]: [
+    "Ripley",
+    "París",
+    "Cine",
+    "Gimnasio",
+    "Sector Patio Comida",
+    "Sector Cruz Verde"
+  ],
+  [Location.MARINA_BOULEVARD]: [
+    "Primer Piso",
+    "Segundo Piso",
+    "Tercer Piso",
+    "Pasarelas"
+  ],
+  [Location.AMA]: [
+    "Rampas",
+    "Escaleras Mecánicas",
+    "Sector Jumbo"
+  ]
+};
 
 export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initialDate, initialData }) => {
   const [formData, setFormData] = useState<Partial<MaintenanceRecord>>({
@@ -42,6 +88,18 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
 
   const [selectedNumbers, setSelectedNumbers] = useState<string[]>([]);
 
+  // Calculate limits based on selected type
+  const isElevator = formData.equipmentType === EquipmentType.ELEVATOR;
+  const maxNumber = isElevator ? 4 : 22;
+  const equipmentNumbers = Array.from({ length: maxNumber }, (_, i) => (i + 1).toString());
+
+  // Determine available sectors based on current selection (Location AND Type)
+  const availableSectors = formData.location
+      ? (isElevator 
+          ? ELEVATOR_SECTORS[formData.location as Location] 
+          : ESCALATOR_SECTORS[formData.location as Location])
+      : [];
+
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
@@ -50,7 +108,9 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
           // Extract numbers from string like "1, 2, 3" or "Nº 1, 2"
           const matches = initialData.equipmentOrder.match(/\d+/g);
           if (matches) {
-              setSelectedNumbers(matches);
+              // Filter out numbers that exceed the current limit (just in case type changed)
+              const validMatches = matches.filter(n => parseInt(n) <= maxNumber);
+              setSelectedNumbers(validMatches);
           }
       }
     }
@@ -89,6 +149,27 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newType = e.target.value as EquipmentType;
+      // Reset selection when type changes to avoid invalid numbers (e.g. Elevator 20)
+      setSelectedNumbers([]);
+      setFormData(prev => ({ 
+          ...prev, 
+          equipmentType: newType, 
+          equipmentOrder: '',
+          sector: '' // Reset sector when type changes to avoid mismatch
+      }));
+  };
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newLocation = e.target.value as Location;
+      setFormData(prev => ({ 
+          ...prev, 
+          location: newLocation,
+          sector: '' // Reset sector when location changes
+      }));
   };
 
   const handleAudioSaved = (base64Audio: string | undefined) => {
@@ -134,69 +215,83 @@ export const RecordForm: React.FC<RecordFormProps> = ({ onSave, onCancel, initia
             </div>
           </div>
 
-          <div>
-             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Ubicación</label>
-             <select
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
-             >
-                {Object.values(Location).map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                ))}
-             </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Sector (Opcional)</label>
-            <input
-              type="text"
-              name="sector"
-              value={formData.sector || ''}
-              onChange={handleChange}
-              placeholder="Ej: Ala Norte, Patio de Comidas..."
-              className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Técnico</label>
-                <input
-                    list="technicians"
-                    name="technician"
-                    required
-                    value={formData.technician}
-                    onChange={handleChange}
-                    placeholder="Nombre"
+            <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Ubicación</label>
+                <select
+                    name="location"
+                    value={formData.location}
+                    onChange={handleLocationChange}
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-                <datalist id="technicians">
-                    {PREDEFINED_TECHNICIANS.map(t => <option key={t} value={t} />)}
-                </datalist>
-              </div>
-              <div>
+                >
+                    {Object.values(Location).map(loc => (
+                        <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Tipo</label>
                 <select
                     name="equipmentType"
                     value={formData.equipmentType}
-                    onChange={handleChange}
+                    onChange={handleTypeChange}
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
                 >
                     {Object.values(EquipmentType).map(type => (
                         <option key={type} value={type}>{type}</option>
                     ))}
                 </select>
-              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Sector / Detalle</label>
+            {availableSectors.length > 0 ? (
+                 <select
+                    name="sector"
+                    value={formData.sector}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
+                 >
+                    <option value="">-- Seleccionar Sector --</option>
+                    {availableSectors.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                    ))}
+                 </select>
+            ) : (
+                <input
+                type="text"
+                name="sector"
+                value={formData.sector || ''}
+                onChange={handleChange}
+                placeholder="Ej: Ala Norte, Patio de Comidas..."
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
+                />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Técnico</label>
+            <input
+                list="technicians"
+                name="technician"
+                required
+                value={formData.technician}
+                onChange={handleChange}
+                placeholder="Nombre"
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-brand-500 outline-none"
+            />
+            <datalist id="technicians">
+                {PREDEFINED_TECHNICIANS.map(t => <option key={t} value={t} />)}
+            </datalist>
           </div>
 
           <div>
              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                 Seleccionar Equipos (Nº 1 - 22)
+                 Seleccionar {isElevator ? 'Ascensores (1-4)' : 'Escaleras (1-22)'}
              </label>
-             <div className="grid grid-cols-6 gap-2">
-                {EQUIPMENT_NUMBERS.map(num => {
+             <div className={`grid gap-2 transition-all ${isElevator ? 'grid-cols-4' : 'grid-cols-6'}`}>
+                {equipmentNumbers.map(num => {
                     const isSelected = selectedNumbers.includes(num);
                     return (
                         <button
