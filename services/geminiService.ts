@@ -204,6 +204,47 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
     }
 };
 
+export const checkVoiceConfirmation = async (audioBase64: string): Promise<boolean> => {
+    const ai = getAIClient();
+    if (!ai) return false;
+
+    const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
+    
+    const prompt = `
+    Escucha el audio. El usuario debe CONFIRMAR o CANCELAR una acción peligrosa (borrar).
+    - Si dice "Sí", "Confirmo", "Bórralo", "Dale", "Correcto": Retorna TRUE.
+    - Si dice "No", "Cancela", "Espera", "Me equivoqué", "No lo borres": Retorna FALSE.
+    
+    Retorna JSON: { "confirmed": boolean }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: 'audio/webm', data: cleanBase64 } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                         confirmed: { type: "BOOLEAN" }
+                    }
+                }
+            }
+        });
+        const result = JSON.parse(response.text || '{}');
+        return result.confirmed === true;
+    } catch (e) {
+        console.error("Error checking confirmation", e);
+        return false;
+    }
+}
+
 export const consultPendingStatus = async (
     audioBase64: string, 
     currentRecords: MaintenanceRecord[]

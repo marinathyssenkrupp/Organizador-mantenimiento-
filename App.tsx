@@ -11,6 +11,7 @@ import { AnalysisModal } from './components/AnalysisModal';
 import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { GuideModal } from './components/GuideModal';
 import { InventoryModal } from './components/InventoryModal';
+import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -55,8 +56,9 @@ const App: React.FC = () => {
     return false;
   });
 
-  // Day Detail Modal State
+  // Modal States
   const [selectedDayDetail, setSelectedDayDetail] = useState<string | null>(null);
+  const [recordToDeleteId, setRecordToDeleteId] = useState<string | null>(null);
 
   // AI State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -123,9 +125,6 @@ const App: React.FC = () => {
   };
 
   const handleVoiceRecordDeleted = (criteria: Partial<MaintenanceRecord>): boolean => {
-    // Find record to delete
-    // Match criteria: Date (exact), EquipmentOrder (Fuzzy/Includes), Location (Exact if provided)
-    
     const targetDate = criteria.date || new Date().toISOString().split('T')[0];
     const targetEquipment = criteria.equipmentOrder?.toLowerCase() || '';
     
@@ -145,14 +144,23 @@ const App: React.FC = () => {
     return false;
   };
 
-  const handleDeleteRecord = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este registro?')) {
-      const updated = deleteRecord(id);
-      setRecords(updated);
-      if (editingRecord?.id === id) {
-          setIsFormOpen(false);
-          setEditingRecord(null);
-      }
+  // Triggered when clicking Trash icon
+  const handleDeleteRequest = (id: string) => {
+    setRecordToDeleteId(id);
+  };
+
+  // Triggered when confirming inside DeleteConfirmationModal
+  const executeDelete = () => {
+    if (recordToDeleteId) {
+        const updated = deleteRecord(recordToDeleteId);
+        setRecords(updated);
+        
+        // If we were editing this exact record, close the form
+        if (editingRecord?.id === recordToDeleteId) {
+            setIsFormOpen(false);
+            setEditingRecord(null);
+        }
+        setRecordToDeleteId(null);
     }
   };
 
@@ -530,14 +538,14 @@ const App: React.FC = () => {
               <MaintenanceTable 
                 records={filteredRecords} 
                 type={EquipmentType.ELEVATOR} 
-                onDelete={handleDeleteRecord}
+                onDelete={handleDeleteRequest}
                 onPlayAudio={playAudio}
                 onEdit={handleEdit}
               />
               <MaintenanceTable 
                 records={filteredRecords} 
                 type={EquipmentType.ESCALATOR} 
-                onDelete={handleDeleteRecord}
+                onDelete={handleDeleteRequest}
                 onPlayAudio={playAudio}
                 onEdit={handleEdit}
               />
@@ -584,9 +592,16 @@ const App: React.FC = () => {
             onEdit={(record) => {
                 handleEdit(record);
             }}
+            onDelete={handleDeleteRequest}
             onPlayAudio={playAudio}
           />
       )}
+
+      <DeleteConfirmationModal
+        isOpen={!!recordToDeleteId}
+        onClose={() => setRecordToDeleteId(null)}
+        onConfirm={executeDelete}
+      />
 
       <AnalysisModal 
         isOpen={isAnalysisModalOpen}

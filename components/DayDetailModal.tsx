@@ -1,16 +1,17 @@
 import React from 'react';
 import { MaintenanceRecord, EquipmentType, Location } from '../types';
-import { X, Play, User, Clock, MapPin, AlignLeft, Volume2 } from 'lucide-react';
+import { X, Play, User, Clock, MapPin, AlignLeft, Volume2, Trash2 } from 'lucide-react';
 
 interface DayDetailModalProps {
   date: string;
   records: MaintenanceRecord[];
   onClose: () => void;
   onEdit: (record: MaintenanceRecord) => void;
+  onDelete: (id: string) => void;
   onPlayAudio: (url: string) => void;
 }
 
-export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, onClose, onEdit, onPlayAudio }) => {
+export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, onClose, onEdit, onDelete, onPlayAudio }) => {
   if (!records) return null;
 
   // Group by Location
@@ -75,7 +76,7 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, o
                                 {locRecords.map(record => (
                                     <div 
                                         key={record.id} 
-                                        className="p-4 hover:bg-brand-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+                                        className="p-4 hover:bg-brand-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group relative"
                                         onClick={() => onEdit(record)}
                                     >
                                         <div className="flex justify-between items-start mb-3">
@@ -103,6 +104,18 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, o
                                                     </div>
                                                 </div>
                                             </div>
+                                            
+                                            {/* Delete Button (Visible on Hover or always on mobile if wanted, here using group-hover) */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDelete(record.id);
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                title="Eliminar registro"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
                                         
                                         {(record.notes || record.audioNote) && (

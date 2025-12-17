@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, X, Loader2, CheckCircle2, AlertCircle, StopCircle, HelpCircle, FilePlus, Volume2, Trash2 } from 'lucide-react';
-import { processVoiceCommand, consultPendingStatus } from '../services/geminiService';
+import { processVoiceCommand, consultPendingStatus, checkVoiceConfirmation } from '../services/geminiService';
 import { MaintenanceRecord, Location, EquipmentType } from '../types';
 
 interface VoiceAssistantModalProps {
@@ -11,11 +11,14 @@ interface VoiceAssistantModalProps {
   currentRecords: MaintenanceRecord[];
 }
 
+type AssistantStatus = 'idle' | 'recording' | 'processing' | 'success' | 'confirming' | 'recording_confirmation' | 'processing_confirmation' | 'deleted' | 'speaking' | 'error';
+
 export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen, onClose, onRecordCreated, onRecordDeleted, currentRecords }) => {
   const [mode, setMode] = useState<'create' | 'consult'>('create');
-  const [status, setStatus] = useState<'idle' | 'recording' | 'processing' | 'success' | 'deleted' | 'speaking' | 'error'>('idle');
+  const [status, setStatus] = useState<AssistantStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<Partial<MaintenanceRecord> | null>(null);
+  const [pendingDeletion, setPendingDeletion] = useState<Partial<MaintenanceRecord> | null>(null);
   const [consultResponse, setConsultResponse] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -25,8 +28,8 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     if (isOpen) {
         setStatus('idle');
         setTranscript(null);
+        setPendingDeletion(null);
         setConsultResponse(null);
-        // Stop any previous speech
         window.speechSynthesis.cancel();
     }
   }, [isOpen]);
@@ -53,7 +56,14 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       };
 
       mediaRecorderRef.current.start();
-      setStatus('recording');
+      
+      // Determine next status based on current context
+      if (status === 'confirming') {
+          setStatus('recording_confirmation');
+      } else {
+          setStatus('recording');
+      }
+
     } catch (err) {
       console.error("Mic Error:", err);
       setStatus('error');
@@ -62,9 +72,14 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && status === 'recording') {
+    if (mediaRecorderRef.current && (status === 'recording' || status === 'recording_confirmation')) {
       mediaRecorderRef.current.stop();
-      setStatus('processing');
+      
+      if (status === 'recording_confirmation') {
+          setStatus('processing_confirmation');
+      } else {
+          setStatus('processing');
+      }
     }
   };
 
@@ -74,30 +89,89 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     utterance.lang = 'es-ES';
     utterance.rate = 1.0;
     
-    utterance.onstart = () => setStatus('speaking');
-    utterance.onend = () => setStatus('idle'); // Back to idle after speaking
+    // Only switch to 'speaking' state if we aren't in a confirmation flow
+    // because 'confirming' needs to persist to show buttons.
+    utterance.onstart = () => {
+        if (!isConfirmationPhase) setStatus('speaking');
+    }
+    utterance.onend = () => {
+        if (status === 'speaking') setStatus('idle');
+    }
     
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleManualConfirm = () => {
+    // If recording, stop it first to prevent double processing
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+    }
+
+    if (pendingDeletion) {
+        const success = onRecordDeleted(pendingDeletion);
+        if (success) {
+            setStatus('deleted');
+            setTranscript(pendingDeletion);
+            speakText("Registro eliminado correctamente.");
+        } else {
+            setStatus('error');
+            setErrorMessage("No encontré el registro.");
+            speakText("No pude encontrar el registro.");
+        }
+        setPendingDeletion(null);
+    }
+  };
+
+  const handleManualCancel = () => {
+     // If recording, stop it first
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+    }
+    setStatus('idle');
+    speakText("Operación cancelada.");
+    setPendingDeletion(null);
+  };
+
   const processAudio = async (base64Audio: string) => {
     try {
+        // --- CONFIRMATION FLOW ---
+        // Handle processing if we came from 'confirming' state
+        if ((status === 'processing_confirmation' || status === 'confirming') && pendingDeletion) {
+            const isConfirmed = await checkVoiceConfirmation(base64Audio);
+            
+            if (isConfirmed) {
+                // We re-call logic but without stopping recorder (it's already stopped)
+                if (pendingDeletion) {
+                    const success = onRecordDeleted(pendingDeletion);
+                    if (success) {
+                        setStatus('deleted');
+                        setTranscript(pendingDeletion);
+                        speakText("Registro eliminado correctamente.");
+                    } else {
+                        setStatus('error');
+                        setErrorMessage("No encontré el registro.");
+                        speakText("No pude encontrar el registro.");
+                    }
+                    setPendingDeletion(null);
+                }
+            } else {
+                setStatus('idle');
+                speakText("Operación cancelada.");
+                setPendingDeletion(null);
+            }
+            return;
+        }
+
+        // --- STANDARD FLOW ---
         if (mode === 'create') {
             const result = await processVoiceCommand(base64Audio);
             if (result) {
                 
                 if (result.intent === 'DELETE') {
-                    // Handle Deletion
-                    const success = onRecordDeleted(result.data);
-                    if (success) {
-                        setStatus('deleted');
-                        setTranscript(result.data);
-                        speakText(`Eliminado el registro de ${result.data.equipmentOrder || 'el equipo'}.`);
-                    } else {
-                        setStatus('error');
-                        setErrorMessage("No encontré un registro que coincida.");
-                        speakText("No encontré ese registro para borrar.");
-                    }
+                    // Ask for confirmation instead of deleting immediately
+                    setPendingDeletion(result.data);
+                    setStatus('confirming');
+                    speakText(`¿Seguro que quieres borrar el registro de ${result.data.equipmentOrder || 'este equipo'}? Pulsa el micrófono y di sí, o usa los botones.`);
                 } else {
                     // Handle Creation
                     setTranscript(result.data);
@@ -134,6 +208,8 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
         setErrorMessage("Error de conexión con la IA.");
     }
   };
+
+  const isConfirmationPhase = status === 'confirming' || status === 'recording_confirmation' || status === 'processing_confirmation';
 
   if (!isOpen) return null;
 
@@ -179,7 +255,8 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             </p>
         </div>
 
-        <div className="py-6 flex flex-col justify-center items-center w-full min-h-[200px]">
+        <div className="py-6 flex flex-col justify-center items-center w-full min-h-[220px]">
+            {/* IDLE STATE */}
             {status === 'idle' && (
                 <button 
                     onClick={startRecording}
@@ -189,6 +266,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 </button>
             )}
 
+            {/* GENERIC RECORDING STATE (NOT CONFIRMATION) */}
             {status === 'recording' && (
                 <div className="flex flex-col items-center">
                     <div className="relative">
@@ -204,6 +282,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 </div>
             )}
 
+            {/* GENERIC PROCESSING STATE (NOT CONFIRMATION) */}
             {status === 'processing' && (
                 <div className="flex flex-col items-center">
                     <div className="w-16 h-16 relative flex items-center justify-center">
@@ -213,6 +292,68 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 </div>
             )}
 
+            {/* CONFIRMATION PHASE (Handles Idle, Recording, Processing within Confirmation) */}
+            {isConfirmationPhase && (
+                 <div className="flex flex-col items-center animate-scale-in text-center px-6 w-full">
+                    <div className="w-16 h-16 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400 mb-2">
+                        {status === 'processing_confirmation' ? <Loader2 size={36} className="animate-spin" /> : <AlertCircle size={36} />}
+                    </div>
+                    <h4 className="text-lg font-bold text-yellow-700 dark:text-yellow-400">¿Estás seguro?</h4>
+                    <p className="text-sm text-gray-500 mt-2 mb-4">
+                        {status === 'recording_confirmation' ? 'Escuchando tu respuesta...' : 
+                         status === 'processing_confirmation' ? 'Verificando...' : 'Se eliminará el registro encontrado.'}
+                    </p>
+                    
+                    {/* Buttons Row - ALWAYS VISIBLE */}
+                    <div className="flex gap-3 w-full max-w-[280px]">
+                         <button 
+                            onClick={handleManualCancel}
+                            disabled={status === 'processing_confirmation'}
+                            className="flex-1 py-3 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm disabled:opacity-50"
+                        >
+                            No
+                        </button>
+                        <button 
+                            onClick={handleManualConfirm}
+                            disabled={status === 'processing_confirmation'}
+                            className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-md text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            <Trash2 size={16} /> Sí, borrar
+                        </button>
+                    </div>
+
+                     <div className="mt-4 flex flex-col items-center gap-2">
+                         <span className="text-xs text-gray-400 font-medium uppercase">
+                             {status === 'recording_confirmation' ? 'Detener Voz' : 'O dilo con voz'}
+                         </span>
+                         
+                         {status === 'recording_confirmation' ? (
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20"></div>
+                                <button 
+                                    onClick={stopRecording}
+                                    className="relative z-10 w-12 h-12 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+                                >
+                                    <StopCircle size={20} />
+                                </button>
+                            </div>
+                         ) : status === 'processing_confirmation' ? (
+                             <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                 <Loader2 size={20} className="animate-spin text-gray-500" />
+                             </div>
+                         ) : (
+                            <button 
+                                onClick={startRecording}
+                                className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"
+                            >
+                                <Mic size={20} />
+                            </button>
+                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* SUCCESS STATE (Created) */}
             {status === 'success' && mode === 'create' && (
                 <div className="flex flex-col items-center animate-scale-in">
                     <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mb-2">
@@ -226,16 +367,18 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 </div>
             )}
 
-            {status === 'deleted' && mode === 'create' && (
+            {/* DELETED STATE */}
+            {status === 'deleted' && (
                 <div className="flex flex-col items-center animate-scale-in">
                     <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-2">
                         <Trash2 size={40} />
                     </div>
                     <h4 className="text-lg font-bold text-red-700 dark:text-red-400">¡Eliminado!</h4>
-                    <p className="text-xs text-gray-500 mt-2">Se borró el registro coincidente.</p>
+                    <p className="text-xs text-gray-500 mt-2">Se borró el registro correctamente.</p>
                 </div>
             )}
 
+            {/* SPEAKING / RESPONSE STATE (Consult) */}
             {(status === 'speaking' || (status === 'idle' && consultResponse)) && mode === 'consult' && (
                  <div className="flex flex-col items-center animate-scale-in w-full px-6">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 ${status === 'speaking' ? 'bg-purple-100 text-purple-600 animate-pulse' : 'bg-gray-100 text-gray-500'}`}>
@@ -250,6 +393,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                  </div>
             )}
 
+            {/* ERROR STATE */}
             {status === 'error' && (
                  <div className="flex flex-col items-center animate-shake">
                     <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-2">
