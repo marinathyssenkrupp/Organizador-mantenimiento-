@@ -9,24 +9,17 @@ const getAIClient = () => {
 };
 
 // Master Inventory List for Gap Analysis
-// Updated with specific sub-sectors for elevators AND escalators
 const MASTER_INVENTORY = {
   [Location.MOL_MAL_MARINO]: [
-    // Elevators
     "Ripley", "París", "Torre Marina", "Ascensor Panorámico", "Cine", "Montacargas 14 Norte", "Montacargas 15 Norte",
-    // Escalators/Other
     "Gimnasio", "Sector Patio Comida", "Sector Cruz Verde"
   ],
   [Location.MARINA_BOULEVARD]: [
-    // Elevators
     "Torre Boulevard", "Estacionamientos Otis", "Pasarela Boulevard", "Montacarga Boulevard",
-    // Escalators/Other
     "Primer Piso", "Segundo Piso", "Tercer Piso", "Pasarelas"
   ],
   [Location.AMA]: [
-    // Elevators
     "Torre AMA", "Ascensores H&M", "Estacionamientos Torre Ama", "Ascensores Jumbo", "Montacargas de AMA",
-    // Escalators/Other
     "Rampas", "Escaleras Mecánicas", "Sector Jumbo"
   ]
 };
@@ -40,7 +33,6 @@ export const analyzeMaintenanceData = async (
   const ai = getAIClient();
   if (!ai) return "Error: API Key no encontrada.";
 
-  // Simplify data for token efficiency
   const dataSummary = records.map(r => ({
     dia: r.date,
     hora: r.time,
@@ -88,12 +80,10 @@ export const analyzeEquipmentImage = async (
     const ai = getAIClient();
     if (!ai) return "Error: API Key no encontrada.";
 
-    // Simplify records to just a list of equipment names that have been maintained
     const maintainedEquipment = currentRecords.map(r => 
         `${r.equipmentOrder} (${r.location} - ${r.sector || 'General'}) - ${r.date}`
     );
 
-    // Clean base64 header
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
 
     const prompt = `
@@ -149,23 +139,25 @@ export const analyzeShiftSchedule = async (
     const cleanBase64 = fileBase64.split(',')[1] || fileBase64;
 
     const prompt = `
-    Analiza esta imagen o documento que contiene una planilla de turnos (work schedule).
+    Analiza esta imagen/documento de una planilla de turnos.
     
-    Objetivo: Extraer Supervisores y Técnicos asignados por fecha, distinguiendo si es turno de DÍA o de NOCHE.
+    REGLA DE ORO (FILTRO):
+    Solo me interesan los turnos que cumplan estas condiciones:
+    1. Sean del sector **"Mall Marina"** (o "Marina"). Si no dice sector, asume que es Marina. Ignora Boulevard o Ama si están explícitos.
+    2. Extrae SIEMPRE si es **Supervisor**.
+    3. Extrae Técnicos SOLO si es **Fin de Semana** (Sábado/Domingo) o Turno Especial (Noche).
     
-    Instrucciones Avanzadas:
-    1. Busca fechas (convertir a YYYY-MM-DD).
-    2. Busca nombres de personas.
-    3. **Roles**: Si dice "Supervisor", "Sup", "Encargado", asígnalo como 'Supervisor'. Si no, 'Técnico'.
-    4. **Horario**: 
-       - Si la planilla tiene columnas o secciones que dicen "Noche", "Night", "22:00", "Turno B", marca 'shiftType' como 'Noche'.
-       - Si es horario normal, "Día", "Mañana", marca 'shiftType' como 'Día'.
-       - Si es Fin de Semana, asume 'Día' a menos que se especifique lo contrario.
-    
+    Instrucciones:
+    1. Busca fechas (YYYY-MM-DD).
+    2. Identifica nombres.
+    3. Asigna 'role': "Supervisor" o "Técnico".
+    4. Asigna 'shiftType': "Día" o "Noche".
+    5. Asigna 'location': "Marina" (Si es Boulevard o Ama y lo detectas, márcalo como tal, para filtrar después).
+
     Retorna JSON Array:
     [
-      { "date": "2024-12-17", "name": "Julio Pérez", "role": "Técnico", "shiftType": "Noche" },
-      { "date": "2024-12-18", "name": "Eduardo Leal", "role": "Supervisor", "shiftType": "Día" }
+      { "date": "2024-12-17", "name": "Julio Pérez", "role": "Técnico", "shiftType": "Noche", "location": "Marina" },
+      { "date": "2024-12-18", "name": "Eduardo Leal", "role": "Supervisor", "shiftType": "Día", "location": "Marina" }
     ]
     `;
 
@@ -204,7 +196,6 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
     const ai = getAIClient();
     if (!ai) throw new Error("API Key no encontrada");
 
-    // Clean base64 header if present
     const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
 
     const prompt = `
@@ -213,37 +204,10 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
     Fecha actual: ${new Date().toISOString().split('T')[0]}
     
     Tu tarea es determinar la INTENCIÓN del usuario:
-    1. **CREATE**: Si está dictando una nueva mantención (ej: "José revisó los ascensores 1 y 2 en el sector norte").
-    2. **DELETE**: Si quiere borrar o eliminar un registro (ej: "Borra la mantención de la Torre Marina", "Me equivoqué, elimina lo de hoy").
+    1. **CREATE**: Si está dictando una nueva mantención.
+    2. **DELETE**: Si quiere borrar o eliminar un registro.
 
     Extrae los datos en JSON.
-
-    Reglas para DELETE:
-    - Necesitamos saber QUÉ borrar. Extrae 'equipmentOrder', 'date' y 'location' para poder encontrar el registro.
-    - Si dice "hoy", usa la fecha actual.
-
-    Reglas para CREATE:
-    - Ubicación: 'Marina', 'Boulevard', 'Ama'.
-    - Sector: Intenta mapear a estos valores si suena parecido: 
-        - Marina: Ripley, París, Panorámico, Cine, Torre Marina, Montacargas, Gimnasio, Patio Comida, Cruz Verde.
-        - Boulevard: Torre, Estacionamientos, Pasarela, Montacarga, Pisos (1,2,3).
-        - Ama: Torre, H&M, Jumbo, Rampas, Escaleras.
-      Si no, usa texto libre.
-    - Tipo: 'Ascensor', 'Escalera Mecánica'.
-    - Técnico: Mapea a uno de estos nombres oficiales si suena similar:
-       - Cristian Guerrero
-       - Diego Vargas
-       - Francisca Chimuelo
-       - Italo Sanhueza
-       - Javier Silva
-       - Jonathan Labbé (o "Jonathan Lave")
-       - Jorge Letelier
-       - José Krause
-       - Julio Pérez
-       - Víctor González
-       - Víctor Jaramillo
-    - Equipo: Identificador o número. AHORA SOPORTA MÚLTIPLES NÚMEROS (ej: "1, 2, 3").
-      Si el usuario dice "Ascensor 1 y 2", equipmentOrder debe ser "1, 2".
     `;
 
     try {
@@ -297,10 +261,7 @@ export const checkVoiceConfirmation = async (audioBase64: string): Promise<boole
     const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
     
     const prompt = `
-    Escucha el audio. El usuario debe CONFIRMAR o CANCELAR una acción peligrosa (borrar).
-    - Si dice "Sí", "Confirmo", "Bórralo", "Dale", "Correcto": Retorna TRUE.
-    - Si dice "No", "Cancela", "Espera", "Me equivoqué", "No lo borres": Retorna FALSE.
-    
+    Escucha el audio. El usuario debe CONFIRMAR (Sí/Correcto) o CANCELAR (No).
     Retorna JSON: { "confirmed": boolean }
     `;
 
@@ -340,7 +301,6 @@ export const consultPendingStatus = async (
 
     const cleanBase64 = audioBase64.split(',')[1] || audioBase64;
     
-    // Create a simplified list of what has been done
     const doneList = currentRecords.map(r => ({
         loc: r.location,
         sec: r.sector,
@@ -348,22 +308,11 @@ export const consultPendingStatus = async (
     }));
 
     const prompt = `
-    Eres un asistente de voz para una empresa de mantenimiento.
+    Eres un asistente de voz. 
+    INVENTARIO: ${JSON.stringify(MASTER_INVENTORY)}
+    REALIZADO: ${JSON.stringify(doneList)}
     
-    CONTEXTO (Inventario Total de Equipos):
-    ${JSON.stringify(MASTER_INVENTORY)}
-    
-    MANTENCIONES REALIZADAS ESTE MES (Lo que ya se hizo):
-    ${JSON.stringify(doneList)}
-
-    INSTRUCCIÓN:
-    1. Escucha la pregunta del usuario en el audio.
-    2. Si pregunta "¿Qué falta?" o por una ubicación específica (ej: "¿Qué falta en Ama?"), compara el Inventario Total con las Mantenciones Realizadas.
-    3. Responde de forma **hablada y natural** (como si fueras una persona).
-    4. Sé conciso. No listes todo si falta mucho, resume (ej: "Faltan 3 equipos en Ama: la Torre y dos ascensores"). Si falta poco, nómbralos.
-    5. Si todo está listo, felicita al equipo.
-    
-    Tu respuesta será leída en voz alta, así que no uses Markdown ni símbolos complejos, solo texto plano en español.
+    Responde qué falta por mantener según el audio del usuario. Sé breve.
     `;
 
     try {
@@ -383,30 +332,13 @@ export const consultPendingStatus = async (
     }
 };
 
-// --- Help/Guide Assistant Logic ---
-
 export const askAssistant = async (userQuery: string): Promise<string> => {
   const ai = getAIClient();
   if (!ai) return "Error: No se pudo conectar con el servicio de IA.";
 
   const systemContext = `
     Eres el asistente experto de la aplicación "Gestor de Mantenciones Verticales".
-    
-    INFORMACIÓN DE LA APP:
-    - **Propósito**: Organizar mantenciones de ascensores y escaleras mecánicas.
-    - **Ubicaciones**: Mol Marina, Boulevard, Ama.
-    - **Funcionalidades**:
-      1. **Agregar Registro**: Botón "Nuevo". Se piden datos como Fecha, Hora, Técnico, Sector (Opcional), Ubicación, Equipo (Selección múltiple 1-22).
-      2. **Asistente de Voz**: Botón flotante (micrófono) abajo a la derecha. Permite dictar la mantención (ej: "José revisó los ascensores 1 y 2").
-      3. **Vistas**: Calendario (visual) y Lista (tabla detallada).
-      4. **Exportar**: Menú "Exportar" para generar PDF (para Drive) o CSV (Excel), compartir por WhatsApp o Correo.
-      5. **Análisis IA**: Botón "Analizar" que busca patrones en los datos del mes.
-      6. **Notas de Audio**: Se pueden grabar notas de voz dentro de cada registro.
-      7. **Escanear Inventario**: Botón de cámara. Permite subir una foto (lista o plano) para comparar qué equipos faltan por mantener.
-      8. **Carga de Turnos**: En menú "Nuevo" -> "Cargar Turnos". Sube foto o PDF y la IA detecta supervisores asignados por fecha.
-    
-    Tu trabajo es responder preguntas del usuario sobre cómo usar la app de forma breve, amigable y en español.
-    Si te preguntan algo fuera del contexto de la app, indica cortésmente que solo sabes de mantenciones.
+    Responde dudas sobre cómo usar la app (botones, funciones, etc).
   `;
 
   try {

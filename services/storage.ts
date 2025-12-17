@@ -58,12 +58,13 @@ export const saveShifts = (newShifts: Shift[]): Shift[] => {
   const getKey = (s: Shift) => `${s.date}_${s.shiftType}`;
 
   currentShifts.forEach(s => {
-    // Migration for legacy data (missing role/shiftType)
+    // Migration for legacy data
     const safeShift: Shift = {
         date: s.date,
         name: s.name,
         role: s.role || 'Supervisor',
-        shiftType: s.shiftType || 'Día'
+        shiftType: s.shiftType || 'Día',
+        location: s.location || 'General'
     };
     shiftsMap.set(getKey(safeShift), safeShift);
   });

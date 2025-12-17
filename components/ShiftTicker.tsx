@@ -17,31 +17,31 @@ export const ShiftTicker: React.FC<ShiftTickerProps> = ({ shifts }) => {
     const updateTicker = () => {
         const now = new Date();
         const hour = now.getHours();
-        
-        // Define Logic: Night shift starts at 20:00 (8 PM) and ends at 08:00 (8 AM)
-        // If it's between 00:00 and 08:00, we technically need the shift from the "Previous Date" usually, 
-        // but for simplicity in this app context, we'll check today's date with 'Noche' tag first.
+        const dayOfWeek = now.getDay(); // 0 Sun, 6 Sat
         
         let isNight = hour >= 20 || hour < 8;
         let queryDate = now.toISOString().split('T')[0];
-
-        // If it's early morning (e.g. 2 AM), the shift usually belongs to the previous calendar day's night start.
-        // However, AI parsing usually assigns the date written on the paper. 
-        // We will filter strictly by today's date for simplicity unless strictly necessary.
         
         const type = isNight ? 'Noche' : 'Día';
         setTimeOfDay(type);
 
-        // Filter shifts for TODAY and the CURRENT TYPE
-        const activeShifts = shifts.filter(s => s.date === queryDate && s.shiftType === type);
+        // Filter criteria:
+        // 1. Same Date & Shift Type
+        // 2. Location is Marina (or General)
+        // 3. Role is Supervisor OR it is Weekend
         
-        // Fallback: If no specific 'Day/Night' tag found, just show anyone assigned to Today
-        if (activeShifts.length === 0) {
-            const anyToday = shifts.filter(s => s.date === queryDate);
-            setCurrentStaff(anyToday);
-        } else {
-            setCurrentStaff(activeShifts);
-        }
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+        const activeShifts = shifts.filter(s => {
+            const dateMatch = s.date === queryDate;
+            const typeMatch = s.shiftType === type;
+            const locationMatch = !s.location || s.location.includes('Marina');
+            const roleMatch = s.role === 'Supervisor' || isWeekend;
+
+            return dateMatch && typeMatch && locationMatch && roleMatch;
+        });
+        
+        setCurrentStaff(activeShifts);
     };
 
     updateTicker();
@@ -91,7 +91,9 @@ export const ShiftTicker: React.FC<ShiftTickerProps> = ({ shifts }) => {
                 )}
                 
                 <div className="flex flex-col leading-none">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold">{activePerson.role || 'En Turno'}</span>
+                    <span className="text-[10px] text-gray-400 uppercase font-bold">
+                        {activePerson.role === 'Supervisor' ? 'Supervisor de Turno' : 'Técnico Fin de Semana'}
+                    </span>
                     <span className="text-sm font-bold text-white tracking-wide">{activePerson.name}</span>
                 </div>
            </div>

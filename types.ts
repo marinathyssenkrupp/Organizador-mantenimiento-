@@ -26,8 +26,9 @@ export interface MaintenanceRecord {
 export interface Shift {
   date: string; // YYYY-MM-DD
   name: string;
-  role: 'Supervisor' | 'Técnico'; // New
-  shiftType: 'Día' | 'Noche'; // New
+  role: 'Supervisor' | 'Técnico';
+  shiftType: 'Día' | 'Noche';
+  location?: string; // New: To filter specifically for 'Marina'
 }
 
 export interface MonthOption {

@@ -28,6 +28,26 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, s
     year: 'numeric'
   });
 
+  // --- FILTERING LOGIC ---
+  // Show shift banner only if:
+  // 1. Is Supervisor OR
+  // 2. Is Weekend (Sat/Sun) OR
+  // 3. Is specifically explicitly "Marina" location and not routine weekday technician.
+  // The Gemini Prompt now filters mostly at source, but we add UI safety check.
+  
+  const isCriticalShift = (s: Shift) => {
+      const d = new Date(s.date + 'T00:00:00');
+      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isSupervisor = s.role === 'Supervisor';
+      const isMarina = !s.location || s.location.includes('Marina'); // Default to true if general
+
+      // Show if it's Marina AND (Supervisor OR Weekend)
+      return isMarina && (isSupervisor || isWeekend);
+  };
+
+  const showBanner = shift && isCriticalShift(shift);
+
   return (
     <>
     <style>{`
@@ -56,14 +76,16 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({ date, records, s
           </button>
         </div>
 
-        {/* SHIFT BANNER - Shown if there is a shift assigned */}
-        {shift && (
-             <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-3 flex items-center gap-3">
+        {/* SHIFT BANNER - FILTERED */}
+        {showBanner && (
+             <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-3 flex items-center gap-3 animate-slide-up">
                  <div className="bg-amber-100 dark:bg-amber-900/50 p-2 rounded-full text-amber-600 dark:text-amber-400">
                      <ShieldCheck size={20} />
                  </div>
                  <div>
-                     <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Turno Asignado</p>
+                     <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">
+                         {shift.role === 'Supervisor' ? 'Supervisor de Turno' : 'Turno Fin de Semana (Marina)'}
+                     </p>
                      <p className="text-lg font-bold text-gray-800 dark:text-white">{shift.name}</p>
                  </div>
              </div>
