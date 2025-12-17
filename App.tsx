@@ -12,6 +12,8 @@ import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { GuideModal } from './components/GuideModal';
 import { InventoryModal } from './components/InventoryModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
+import { MusicPlayer } from './components/MusicPlayer';
+import { FloatingActionMenu } from './components/FloatingActionMenu';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -28,11 +30,9 @@ import {
   MessageCircle,
   Mail,
   FileText,
-  Mic,
   Search,
   HelpCircle,
-  Camera,
-  Bot
+  Camera
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -60,12 +60,16 @@ const App: React.FC = () => {
   const [selectedDayDetail, setSelectedDayDetail] = useState<string | null>(null);
   const [recordToDeleteId, setRecordToDeleteId] = useState<string | null>(null);
 
-  // AI State
+  // AI & Feature States
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState("");
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  
+  // Controlled via Menu
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false);
+  
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
   // --- Effects ---
@@ -554,23 +558,18 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Floating Action Button for Chat Assistant */}
-      <button
-        onClick={() => setIsGuideOpen(true)}
-        className="fixed bottom-24 right-6 w-12 h-12 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-full shadow-lg border border-indigo-100 dark:border-gray-700 flex items-center justify-center transition-transform hover:scale-110 z-40"
-        title="Asistente de Ayuda (Chat)"
-      >
-        <Bot size={24} />
-      </button>
+      {/* Floating Action Menu (Unified) */}
+      <FloatingActionMenu 
+        onOpenVoice={() => setIsVoiceAssistantOpen(true)}
+        onOpenChat={() => setIsGuideOpen(true)}
+        onOpenMusic={() => setIsMusicPlayerOpen(true)}
+      />
 
-      {/* Floating Action Button for Voice Assistant */}
-      <button
-        onClick={() => setIsVoiceAssistantOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-600 hover:to-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-40"
-        title="Asistente de Voz"
-      >
-        <Mic size={24} />
-      </button>
+      {/* Music Player (Controlled by Menu) */}
+      <MusicPlayer 
+        isOpen={isMusicPlayerOpen}
+        onClose={() => setIsMusicPlayerOpen(false)}
+      />
 
       {/* Modals */}
       {isFormOpen && (
