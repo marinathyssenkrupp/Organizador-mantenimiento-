@@ -9,6 +9,7 @@ import { analyzeMaintenanceData } from './services/geminiService';
 import { generateMonthlyPDF } from './services/pdfGenerator';
 import { AnalysisModal } from './components/AnalysisModal';
 import { VoiceAssistantModal } from './components/VoiceAssistantModal';
+import { GuideModal } from './components/GuideModal';
 import { 
   PlusCircle, 
   Sparkles, 
@@ -26,7 +27,8 @@ import {
   Mail,
   FileText,
   Mic,
-  Search
+  Search,
+  HelpCircle
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -58,6 +60,7 @@ const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState("");
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
@@ -151,7 +154,8 @@ const App: React.FC = () => {
   };
 
   const playAudio = (audioUrl: string) => {
-    setActiveAudio(audioUrl);
+    const audio = new Audio(audioUrl);
+    audio.play();
   };
 
   // --- Export & Share Logic ---
@@ -262,6 +266,14 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+             <button
+              onClick={() => setIsGuideOpen(true)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Ayuda / Guía"
+            >
+              <HelpCircle size={20} />
+            </button>
+
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -448,13 +460,13 @@ const App: React.FC = () => {
                      <div className="flex gap-3 text-xs overflow-x-auto pb-1 sm:pb-0">
                         {Object.values(Location).map(loc => {
                             let colorClass = 'bg-gray-200';
-                            if (loc === Location.MOL_MAL_MARINO) colorClass = 'bg-blue-100 border-blue-200 dark:bg-blue-900 dark:border-blue-700';
-                            if (loc === Location.MARINA_BOULEVARD) colorClass = 'bg-purple-100 border-purple-200 dark:bg-purple-900 dark:border-purple-700';
-                            if (loc === Location.AMA) colorClass = 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900 dark:border-emerald-700';
+                            if (loc === Location.MOL_MAL_MARINO) colorClass = 'bg-blue-100 border-blue-200 dark:bg-blue-900 dark:border-blue-700 text-blue-700 dark:text-blue-200';
+                            if (loc === Location.MARINA_BOULEVARD) colorClass = 'bg-purple-100 border-purple-200 dark:bg-purple-900 dark:border-purple-700 text-purple-700 dark:text-purple-200';
+                            if (loc === Location.AMA) colorClass = 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200';
                             
                             return (
-                                <div key={loc} className="flex items-center gap-1 whitespace-nowrap text-gray-600 dark:text-gray-400">
-                                    <span className={`w-3 h-3 border rounded ${colorClass}`}></span> 
+                                <div key={loc} className={`flex items-center gap-1 whitespace-nowrap px-2 py-1 rounded border ${colorClass}`}>
+                                    <span className="w-2 h-2 rounded-full bg-current"></span>
                                     {loc}
                                 </div>
                             );
@@ -462,90 +474,73 @@ const App: React.FC = () => {
                      </div>
                   </div>
                   <CalendarView 
-                    records={filteredRecords} 
-                    currentMonth={selectedMonth} 
-                    onPlayAudio={playAudio}
-                    onEditRecord={handleEdit}
-                    onDayClick={(date) => setSelectedDayDetail(date)}
+                      records={filteredRecords} 
+                      currentMonth={selectedMonth}
+                      onPlayAudio={playAudio}
+                      onEditRecord={handleEdit}
+                      onDayClick={(date) => {
+                          const recordsForDay = filteredRecords.filter(r => r.date === date);
+                          if (recordsForDay.length > 0) {
+                              setSelectedDayDetail(date);
+                          } else {
+                              // Optional: Open form for that day
+                              setEditingRecord(null);
+                              // We could pass initialDate to form
+                              // setIsFormOpen(true);
+                          }
+                      }}
                   />
               </div>
           ) : (
-            <div className="grid lg:grid-cols-2 gap-8 animate-fade-in">
-                <section>
-                <MaintenanceTable 
-                    records={filteredRecords} 
-                    type={EquipmentType.ELEVATOR} 
-                    onDelete={handleDeleteRecord}
-                    onPlayAudio={playAudio}
-                    onEdit={handleEdit}
-                />
-                </section>
-                <section>
-                <MaintenanceTable 
-                    records={filteredRecords} 
-                    type={EquipmentType.ESCALATOR} 
-                    onDelete={handleDeleteRecord}
-                    onPlayAudio={playAudio}
-                    onEdit={handleEdit}
-                />
-                </section>
+            <div className="space-y-8 animate-slide-up">
+              <MaintenanceTable 
+                records={filteredRecords} 
+                type={EquipmentType.ELEVATOR} 
+                onDelete={handleDeleteRecord}
+                onPlayAudio={playAudio}
+                onEdit={handleEdit}
+              />
+              <MaintenanceTable 
+                records={filteredRecords} 
+                type={EquipmentType.ESCALATOR} 
+                onDelete={handleDeleteRecord}
+                onPlayAudio={playAudio}
+                onEdit={handleEdit}
+              />
             </div>
           )}
-
         </div>
       </main>
 
       {/* Floating Action Button for Voice Assistant */}
-      <button 
+      <button
         onClick={() => setIsVoiceAssistantOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-pink-500 to-rose-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group"
-        title="Asistente de Voz IA"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-600 hover:to-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 z-40"
+        title="Asistente de Voz"
       >
-        <div className="absolute inset-0 rounded-full bg-white opacity-20 group-hover:animate-ping"></div>
-        <Mic size={28} />
+        <Mic size={24} />
       </button>
-
-      {/* Footer */}
-      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 text-center">
-        <p className="text-sm text-gray-500 dark:text-gray-400">© 2024 Sistema de Gestión de Mantenimiento.</p>
-      </footer>
-
-      {/* Audio Player Overlay */}
-      {activeAudio && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 shadow-xl z-50 flex items-center justify-center animate-slide-up">
-            <div className="flex items-center gap-4 w-full max-w-lg">
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Reproduciendo Nota</span>
-                <audio src={activeAudio} controls autoPlay className="flex-1" />
-                <button 
-                    onClick={() => setActiveAudio(null)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full dark:text-white"
-                >
-                    <span className="sr-only">Cerrar</span>
-                    ✖
-                </button>
-            </div>
-        </div>
-      )}
 
       {/* Modals */}
       {isFormOpen && (
         <RecordForm 
-            onSave={handleSaveRecord} 
-            onCancel={() => {
-                setIsFormOpen(false);
-                setEditingRecord(null);
-            }}
-            initialDate={selectedMonth ? `${selectedMonth}-01` : undefined}
-            initialData={editingRecord}
+          onSave={handleSaveRecord} 
+          onCancel={() => {
+            setIsFormOpen(false);
+            setEditingRecord(null);
+          }} 
+          initialData={editingRecord}
         />
       )}
-      
+
       {selectedDayDetail && (
           <DayDetailModal 
             date={selectedDayDetail}
-            records={records.filter(r => r.date === selectedDayDetail)}
+            records={filteredRecords.filter(r => r.date === selectedDayDetail)}
             onClose={() => setSelectedDayDetail(null)}
-            onEdit={handleEdit}
+            onEdit={(record) => {
+                handleEdit(record);
+            }}
             onPlayAudio={playAudio}
           />
       )}
@@ -556,11 +551,16 @@ const App: React.FC = () => {
         isLoading={isAnalyzing}
         content={analysisResult}
       />
-      
+
       <VoiceAssistantModal 
         isOpen={isVoiceAssistantOpen}
         onClose={() => setIsVoiceAssistantOpen(false)}
         onRecordCreated={handleVoiceRecordCreated}
+      />
+
+      <GuideModal 
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
       />
 
     </div>

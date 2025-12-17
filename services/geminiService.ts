@@ -116,3 +116,42 @@ export const processVoiceCommand = async (audioBase64: string): Promise<Partial<
         return null;
     }
 };
+
+// --- Help/Guide Assistant Logic ---
+
+export const askAssistant = async (userQuery: string): Promise<string> => {
+  const ai = getAIClient();
+  if (!ai) return "Error: No se pudo conectar con el servicio de IA.";
+
+  const systemContext = `
+    Eres el asistente experto de la aplicación "Gestor de Mantenciones Verticales".
+    
+    INFORMACIÓN DE LA APP:
+    - **Propósito**: Organizar mantenciones de ascensores y escaleras mecánicas.
+    - **Ubicaciones**: Mol Marina, Boulevard, Ama.
+    - **Funcionalidades**:
+      1. **Agregar Registro**: Botón "Nuevo". Se piden datos como Fecha, Hora, Técnico, Ubicación, Equipo.
+      2. **Asistente de Voz**: Botón flotante (micrófono) abajo a la derecha. Permite dictar la mantención (ej: "José revisó el ascensor hoy").
+      3. **Vistas**: Calendario (visual) y Lista (tabla detallada).
+      4. **Exportar**: Menú "Exportar" para generar PDF (para Drive) o CSV (Excel), compartir por WhatsApp o Correo.
+      5. **Análisis IA**: Botón "Analizar" que busca patrones en los datos del mes.
+      6. **Notas de Audio**: Se pueden grabar notas de voz dentro de cada registro.
+    
+    Tu trabajo es responder preguntas del usuario sobre cómo usar la app de forma breve, amigable y en español.
+    Si te preguntan algo fuera del contexto de la app, indica cortésmente que solo sabes de mantenciones.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userQuery,
+      config: {
+        systemInstruction: systemContext,
+      }
+    });
+    return response.text || "Lo siento, no pude generar una respuesta.";
+  } catch (error) {
+    console.error("Gemini Chat Error:", error);
+    return "Hubo un error al procesar tu pregunta.";
+  }
+};
