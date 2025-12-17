@@ -1,37 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Music, Play, Pause, SkipForward, SkipBack, Minimize2, X, Radio, Volume2, Volume1, Wifi } from 'lucide-react';
+import React, { useState } from 'react';
+import { Minimize2, Maximize2, X, Music, Disc, SkipForward, SkipBack } from 'lucide-react';
 
-// High Quality, Direct Stream URLs (Reliable & Free for web players)
+// Estaciones de SoundCloud (Playlists oficiales y estables)
 const STATIONS = [
   { 
-    name: 'Groove Salad', 
-    genre: 'Ambient / Downtempo', 
-    url: 'https://ice1.somafm.com/groovesalad-128-mp3',
-    color: 'from-green-500 to-teal-600'
+    name: 'Lofi Girl Study', 
+    genre: 'Relajación / Trabajo', 
+    // Playlist: Lofi Girl Favorites
+    id: '1297573672',
+    color: 'from-orange-500 to-red-600'
   },
   { 
-    name: 'Radio Paradise', 
-    genre: 'Rock / Pop Mix', 
-    url: 'https://stream.radioparadise.com/main-128',
+    name: 'Deep Focus', 
+    genre: 'Concentración', 
+    // Playlist: Focus at Work
+    id: '1195653697',
     color: 'from-blue-500 to-indigo-600'
   },
   { 
-    name: 'Lofi Hip Hop', 
-    genre: 'Beats to Relax', 
-    url: 'https://stream.zeno.fm/0r0xa75dcc9uv', // Zeno FM Lofi Stream
+    name: 'Jazz Vibes', 
+    genre: 'Clásicos', 
+    // Playlist: Jazz Vibes
+    id: '346263595',
+    color: 'from-yellow-600 to-amber-700'
+  },
+  { 
+    name: 'Synthwave Mix', 
+    genre: 'Energía Retro', 
+    // Playlist: Synthwave Mix
+    id: '1252601971',
     color: 'from-pink-500 to-purple-600'
-  },
-  { 
-    name: 'Venice Classic', 
-    genre: 'Música Clásica', 
-    url: 'https://uk2.internet-radio.com/proxy/veniceclassic?mp=/stream;',
-    color: 'from-yellow-600 to-orange-700'
-  },
-  { 
-    name: 'Deep Space One', 
-    genre: 'Espacial / Drone', 
-    url: 'https://ice1.somafm.com/deepspaceone-128-mp3',
-    color: 'from-slate-700 to-gray-900'
   }
 ];
 
@@ -41,245 +39,123 @@ interface MusicPlayerProps {
 }
 
 export const MusicPlayer: React.FC<MusicPlayerProps> = ({ isOpen, onClose }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [currentStationIndex, setCurrentStationIndex] = useState(0);
-  const [volume, setVolume] = useState(0.5);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(false);
-  
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const currentStation = STATIONS[currentStationIndex];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize Audio Object
-  useEffect(() => {
-    if (!audioRef.current) {
-        audioRef.current = new Audio();
-        audioRef.current.crossOrigin = "anonymous";
-    }
-
-    const audio = audioRef.current;
-
-    const handleWaiting = () => setIsLoading(true);
-    const handleCanPlay = () => {
-        setIsLoading(false); 
-        setError(false);
-        if (isPlaying) audio.play().catch(e => console.error("Play error:", e));
-    };
-    const handleError = () => {
-        setIsLoading(false);
-        setError(true);
-        setIsPlaying(false);
-    };
-
-    audio.addEventListener('waiting', handleWaiting);
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('error', handleError);
-
-    return () => {
-        audio.removeEventListener('waiting', handleWaiting);
-        audio.removeEventListener('canplay', handleCanPlay);
-        audio.removeEventListener('error', handleError);
-    };
-  }, []);
-
-  // Handle Station Change
-  useEffect(() => {
-    if (audioRef.current) {
-        // Pause current
-        audioRef.current.pause();
-        // Change src
-        audioRef.current.src = currentStation.url;
-        audioRef.current.load();
-        
-        if (isPlaying) {
-            setIsLoading(true);
-            audioRef.current.play().catch(e => {
-                console.error("Autoplay prevented:", e);
-                setIsPlaying(false);
-            });
-        }
-    }
-  }, [currentStationIndex]);
-
-  // Handle Play/Pause Toggle logic
-  useEffect(() => {
-      if (audioRef.current) {
-          if (isPlaying) {
-              if (audioRef.current.src !== currentStation.url) {
-                  audioRef.current.src = currentStation.url;
-              }
-              audioRef.current.play().catch(() => setIsPlaying(false));
-          } else {
-              audioRef.current.pause();
-          }
-      }
-  }, [isPlaying]);
-
-  // Handle Volume
-  useEffect(() => {
-      if (audioRef.current) {
-          audioRef.current.volume = volume;
-      }
-  }, [volume]);
-
-  // Cleanup on unmount (or app close)
-  useEffect(() => {
-      return () => {
-          if (audioRef.current) {
-              audioRef.current.pause();
-              audioRef.current = null;
-          }
-      };
-  }, []);
-
-
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const currentStation = STATIONS[currentIndex];
 
   const nextStation = () => {
-      let next = currentStationIndex + 1;
-      if (next >= STATIONS.length) next = 0;
-      setCurrentStationIndex(next);
-      setIsPlaying(true);
+      setIsLoading(true);
+      setCurrentIndex((prev) => (prev + 1) % STATIONS.length);
   };
 
   const prevStation = () => {
-      let prev = currentStationIndex - 1;
-      if (prev < 0) prev = STATIONS.length - 1;
-      setCurrentStationIndex(prev);
-      setIsPlaying(true);
+      setIsLoading(true);
+      setCurrentIndex((prev) => (prev - 1 + STATIONS.length) % STATIONS.length);
   };
 
   if (!isOpen) return null;
 
-  return (
-    <div className={`fixed right-6 z-50 transition-all duration-500 ease-in-out shadow-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden ${isMinimized ? 'bottom-24 w-16 h-16 rounded-full' : 'bottom-24 w-80 rounded-3xl'}`}>
-      
-      {/* Minimized View */}
-      {isMinimized && (
-         <button 
-            onClick={() => setIsMinimized(false)}
-            className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${currentStation.color} text-white hover:brightness-110 relative group transition-all`}
-         >
-            {/* Close button hidden in minimized unless hovered */}
-            <div 
-                onClick={(e) => { e.stopPropagation(); onClose(); setIsPlaying(false); }}
-                className="absolute -top-1 -right-1 bg-gray-900 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            >
-                <X size={10} />
-            </div>
+  // --- MODO MINIMIZADO (Estilo Winamp - Barra Superior) ---
+  if (isMinimized) {
+      return (
+        <div className="fixed top-20 right-4 z-50 animate-scale-in">
+            <div className={`bg-gray-900 border border-gray-600 rounded-md shadow-2xl flex items-center p-1 gap-2 w-64 overflow-hidden`}>
+                {/* Visualizer simulado */}
+                <div className="h-6 w-1 bg-green-500 animate-[pulse_0.8s_infinite]"></div>
+                <div className="h-4 w-1 bg-green-500 animate-[pulse_1.2s_infinite]"></div>
+                <div className="h-8 w-1 bg-green-500 animate-[pulse_0.5s_infinite]"></div>
 
-            {isPlaying && (
-                 <span className="absolute inset-0 rounded-full border-2 border-white/50 animate-ping"></span>
-            )}
-            <Music size={24} className={isPlaying ? 'animate-pulse' : ''} />
-         </button>
-      )}
+                <div className="flex-1 flex flex-col justify-center overflow-hidden px-1">
+                    <span className="text-[10px] text-green-400 font-mono uppercase truncate">
+                        {currentIndex + 1}. {currentStation.name}
+                    </span>
+                    <span className="text-[8px] text-gray-400 font-mono">
+                        00:00 / ∞
+                    </span>
+                </div>
 
-      {/* Expanded View */}
-      {!isMinimized && (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-          
-          {/* Header */}
-          <div className={`bg-gradient-to-r ${currentStation.color} p-4 flex justify-between items-start text-white shrink-0 relative overflow-hidden`}>
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-            
-            <div className="relative z-10">
-                <div className="flex items-center gap-1 opacity-90">
-                    <Radio size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Radio Online</span>
+                <div className="flex gap-1">
+                    <button 
+                        onClick={() => setIsMinimized(false)}
+                        className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+                        title="Restaurar"
+                    >
+                        <Maximize2 size={12} />
+                    </button>
+                    <button 
+                        onClick={onClose}
+                        className="p-1 hover:bg-red-900 rounded text-gray-300 hover:text-red-400 transition-colors"
+                        title="Cerrar"
+                    >
+                        <X size={12} />
+                    </button>
                 </div>
             </div>
+        </div>
+      );
+  }
 
-            <div className="flex gap-2 relative z-10">
-                <button onClick={() => setIsMinimized(true)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors backdrop-blur-sm">
+  // --- MODO EXPANDIDO (Tarjeta Flotante Inferior) ---
+  return (
+    <div className="fixed bottom-24 right-6 z-50 animate-slide-up origin-bottom-right">
+      <div className="bg-black rounded-xl shadow-2xl border border-gray-800 w-80 overflow-hidden flex flex-col">
+        
+        {/* Header Compacto */}
+        <div className={`bg-gradient-to-r ${currentStation.color} p-3 flex justify-between items-center text-white`}>
+            <div className="flex items-center gap-2 overflow-hidden">
+                <Disc size={18} className={isLoading ? "animate-spin" : ""} />
+                <div className="flex flex-col">
+                    <span className="font-bold text-sm truncate w-32">{currentStation.name}</span>
+                    <span className="text-[10px] opacity-80">{currentStation.genre}</span>
+                </div>
+            </div>
+            <div className="flex gap-1">
+                 <button onClick={prevStation} className="p-1.5 hover:bg-black/20 rounded-full" title="Anterior">
+                    <SkipBack size={16} fill="currentColor" />
+                </button>
+                <button onClick={nextStation} className="p-1.5 hover:bg-black/20 rounded-full" title="Siguiente">
+                    <SkipForward size={16} fill="currentColor" />
+                </button>
+                <div className="w-px h-4 bg-white/30 mx-1 self-center"></div>
+                <button onClick={() => setIsMinimized(true)} className="p-1.5 hover:bg-black/20 rounded-full" title="Minimizar">
                     <Minimize2 size={16} />
                 </button>
-                <button onClick={() => { setIsPlaying(false); onClose(); }} className="hover:bg-white/20 p-1.5 rounded-full transition-colors backdrop-blur-sm">
+                <button onClick={onClose} className="p-1.5 hover:bg-black/20 rounded-full" title="Cerrar">
                     <X size={16} />
                 </button>
             </div>
-          </div>
-
-          {/* Player Body */}
-          <div className="p-6 flex flex-col items-center gap-5 relative">
-             
-             {/* Visualizer / Album Art */}
-             <div className="relative w-32 h-32">
-                {/* Vinyl Record Animation */}
-                <div className={`w-32 h-32 rounded-full bg-gray-900 border-4 border-gray-800 shadow-xl flex items-center justify-center overflow-hidden transition-transform duration-[5000ms] ease-linear ${isPlaying && !isLoading ? 'animate-[spin_4s_linear_infinite]' : ''}`}>
-                    {/* Inner Label */}
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${currentStation.color} border-2 border-white/20`}></div>
-                    {/* Shine effect */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none rounded-full"></div>
-                </div>
-                
-                {/* Status Indicator */}
-                <div className="absolute -bottom-2 -right-2 bg-white dark:bg-gray-800 rounded-full p-1.5 shadow-md">
-                    {isLoading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-500 border-t-transparent"></div>
-                    ) : error ? (
-                        <Wifi size={16} className="text-red-500" />
-                    ) : isPlaying ? (
-                        <div className="flex gap-0.5 items-end h-3">
-                            <span className="w-1 bg-green-500 h-2 animate-[bounce_1s_infinite]"></span>
-                            <span className="w-1 bg-green-500 h-3 animate-[bounce_1.2s_infinite]"></span>
-                            <span className="w-1 bg-green-500 h-1.5 animate-[bounce_0.8s_infinite]"></span>
-                        </div>
-                    ) : (
-                        <div className="w-4 h-4 rounded-full bg-gray-300 dark:bg-gray-600"></div>
-                    )}
-                </div>
-             </div>
-
-             {/* Metadata */}
-             <div className="text-center w-full">
-                 <h3 className="font-bold text-gray-800 dark:text-white text-lg truncate leading-tight">
-                    {currentStation.name}
-                 </h3>
-                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
-                    {error ? "Error de conexión" : isLoading ? "Conectando..." : currentStation.genre}
-                 </p>
-             </div>
-
-             {/* Main Controls */}
-             <div className="flex items-center gap-6 w-full justify-center">
-                 <button onClick={prevStation} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                    <SkipBack size={24} fill="currentColor" />
-                 </button>
-
-                 <button 
-                    onClick={togglePlay}
-                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg transform active:scale-95 ${isPlaying ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white' : 'bg-gradient-to-r ' + currentStation.color + ' text-white hover:scale-105'}`}
-                 >
-                    {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
-                 </button>
-
-                 <button onClick={nextStation} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                    <SkipForward size={24} fill="currentColor" />
-                 </button>
-             </div>
-
-             {/* Volume Slider */}
-             <div className="w-full flex items-center gap-3 px-2 pt-2">
-                 <button onClick={() => setVolume(v => v === 0 ? 0.5 : 0)} className="text-gray-400">
-                     {volume === 0 ? <Volume2 size={16} className="opacity-50" /> : <Volume2 size={16} />}
-                 </button>
-                 <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.05" 
-                    value={volume}
-                    onChange={(e) => setVolume(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gray-500"
-                 />
-             </div>
-
-          </div>
         </div>
-      )}
+
+        {/* Iframe de SoundCloud (Motor Robusto) */}
+        <div className="relative h-40 bg-gray-900">
+             {isLoading && (
+                 <div className="absolute inset-0 flex items-center justify-center z-0 text-gray-500 gap-2">
+                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-white"></div>
+                     <span className="text-xs">Cargando...</span>
+                 </div>
+             )}
+             
+             {/* Key cambia para forzar recarga limpia al cambiar estación */}
+             <iframe
+                key={currentStation.id}
+                width="100%"
+                height="100%"
+                scrolling="no"
+                frameBorder="no"
+                allow="autoplay"
+                src={`https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/${currentStation.id}&color=%23ff5500&auto_play=true&hide_related=false&show_comments=false&show_user=false&show_reposts=false&show_teaser=true&visual=true`}
+                onLoad={() => setIsLoading(false)}
+                className="relative z-10"
+                title="Music Player"
+             ></iframe>
+        </div>
+        
+        <div className="bg-gray-900 p-1 text-center">
+             <p className="text-[9px] text-gray-500">Conexión estable vía SoundCloud</p>
+        </div>
+      </div>
     </div>
   );
 };

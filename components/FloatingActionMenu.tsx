@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, X, Mic, Bot, Music } from 'lucide-react';
+import { Plus, X, Mic, Bot } from 'lucide-react';
 
 interface FloatingActionMenuProps {
   onOpenVoice: () => void;
   onOpenChat: () => void;
-  onOpenMusic: () => void;
 }
 
 export const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({ 
   onOpenVoice, 
   onOpenChat, 
-  onOpenMusic 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -24,19 +22,6 @@ export const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
       {/* Sub-buttons (Actions) */}
       <div className={`flex flex-col gap-3 transition-all duration-300 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
         
-        {/* Music Button */}
-        <div className="flex items-center gap-2">
-            <span className={`bg-gray-800 text-white text-xs py-1 px-2 rounded-md shadow-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
-                Música
-            </span>
-            <button 
-                onClick={() => { onOpenMusic(); setIsOpen(false); }}
-                className={`${buttonBaseClass} bg-pink-600 hover:bg-pink-700`}
-            >
-                <Music size={20} />
-            </button>
-        </div>
-
         {/* Chat/Guide Button */}
         <div className="flex items-center gap-2">
             <span className={`bg-gray-800 text-white text-xs py-1 px-2 rounded-md shadow-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>

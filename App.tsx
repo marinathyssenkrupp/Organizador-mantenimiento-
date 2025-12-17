@@ -12,7 +12,6 @@ import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { GuideModal } from './components/GuideModal';
 import { InventoryModal } from './components/InventoryModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
-import { MusicPlayer } from './components/MusicPlayer';
 import { FloatingActionMenu } from './components/FloatingActionMenu';
 import { 
   PlusCircle, 
@@ -68,7 +67,6 @@ const App: React.FC = () => {
   // Controlled via Menu
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false);
   
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
@@ -562,13 +560,6 @@ const App: React.FC = () => {
       <FloatingActionMenu 
         onOpenVoice={() => setIsVoiceAssistantOpen(true)}
         onOpenChat={() => setIsGuideOpen(true)}
-        onOpenMusic={() => setIsMusicPlayerOpen(true)}
-      />
-
-      {/* Music Player (Controlled by Menu) */}
-      <MusicPlayer 
-        isOpen={isMusicPlayerOpen}
-        onClose={() => setIsMusicPlayerOpen(false)}
       />
 
       {/* Modals */}
