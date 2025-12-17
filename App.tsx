@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { MaintenanceRecord, Location, EquipmentType } from './types';
 import { getRecords, saveRecord, deleteRecord, updateRecord } from './services/storage';
 import { RecordForm } from './components/RecordForm';
@@ -590,6 +591,7 @@ const App: React.FC = () => {
         onClose={() => setIsGuideOpen(false)}
       />
 
+      <SpeedInsights />
     </div>
   );
 };
