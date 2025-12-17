@@ -47,6 +47,7 @@ export const generateMonthlyPDF = (
     record.date,
     record.time,
     record.location,
+    record.sector || '-',
     record.equipmentType === 'Ascensor' ? 'Asc.' : 'Esc.',
     record.equipmentOrder,
     record.technician,
@@ -55,7 +56,7 @@ export const generateMonthlyPDF = (
 
   autoTable(doc, {
     startY: 55,
-    head: [['Fecha', 'Hora', 'Ubicación', 'Tipo', 'Equipo', 'Técnico', 'Notas']],
+    head: [['Fecha', 'Hora', 'Ubicación', 'Sector', 'Tipo', 'Equipo(s)', 'Técnico', 'Notas']],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -72,13 +73,14 @@ export const generateMonthlyPDF = (
       fillColor: [240, 249, 255]
     },
     columnStyles: {
-      0: { cellWidth: 22 }, // Date
-      1: { cellWidth: 15 }, // Time
-      2: { cellWidth: 25 }, // Location
-      3: { cellWidth: 12 }, // Type
-      4: { cellWidth: 35 }, // Equipment
-      5: { cellWidth: 30 }, // Tech
-      6: { cellWidth: 'auto' } // Notes
+      0: { cellWidth: 18 }, // Date
+      1: { cellWidth: 12 }, // Time
+      2: { cellWidth: 20 }, // Location
+      3: { cellWidth: 20 }, // Sector
+      4: { cellWidth: 10 }, // Type
+      5: { cellWidth: 25 }, // Equipment
+      6: { cellWidth: 25 }, // Tech
+      7: { cellWidth: 'auto' } // Notes
     }
   });
 

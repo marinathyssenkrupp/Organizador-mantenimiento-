@@ -34,6 +34,7 @@ export const analyzeMaintenanceData = async (
     dia: r.date,
     hora: r.time,
     tec: r.technician,
+    sector: r.sector,
     tipo: r.equipmentType,
     id_equipo: r.equipmentOrder
   }));
@@ -145,7 +146,7 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
     Fecha actual: ${new Date().toISOString().split('T')[0]}
     
     Tu tarea es determinar la INTENCIÓN del usuario:
-    1. **CREATE**: Si está dictando una nueva mantención (ej: "José revisó el ascensor").
+    1. **CREATE**: Si está dictando una nueva mantención (ej: "José revisó los ascensores 1 y 2 en el sector norte").
     2. **DELETE**: Si quiere borrar o eliminar un registro (ej: "Borra la mantención de la Torre Marina", "Me equivoqué, elimina lo de hoy").
 
     Extrae los datos en JSON.
@@ -156,9 +157,11 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
 
     Reglas para CREATE:
     - Ubicación: 'Marina', 'Boulevard', 'Ama'.
+    - Sector: Campo de texto libre para área específica (ej: "Patio de Comidas", "Ala Norte", "Ripley").
     - Tipo: 'Ascensor', 'Escalera Mecánica'.
     - Técnico: Busca nombres (Jose Krause, Javier Silva, etc).
-    - Equipo: Nombre del equipo.
+    - Equipo: Identificador o número. AHORA SOPORTA MÚLTIPLES NÚMEROS (ej: "1, 2, 3").
+      Si el usuario dice "Ascensor 1 y 2", equipmentOrder debe ser "1, 2".
     `;
 
     try {
@@ -181,6 +184,7 @@ export const processVoiceCommand = async (audioBase64: string): Promise<VoiceCom
                             properties: {
                                 technician: { type: "STRING" },
                                 location: { type: "STRING", enum: ["Marina", "Boulevard", "Ama"] },
+                                sector: { type: "STRING" },
                                 equipmentType: { type: "STRING", enum: ["Ascensor", "Escalera Mecánica"] },
                                 date: { type: "STRING" },
                                 time: { type: "STRING" },
@@ -257,6 +261,7 @@ export const consultPendingStatus = async (
     // Create a simplified list of what has been done
     const doneList = currentRecords.map(r => ({
         loc: r.location,
+        sec: r.sector,
         eq: r.equipmentOrder
     }));
 
@@ -309,8 +314,8 @@ export const askAssistant = async (userQuery: string): Promise<string> => {
     - **Propósito**: Organizar mantenciones de ascensores y escaleras mecánicas.
     - **Ubicaciones**: Mol Marina, Boulevard, Ama.
     - **Funcionalidades**:
-      1. **Agregar Registro**: Botón "Nuevo". Se piden datos como Fecha, Hora, Técnico, Ubicación, Equipo.
-      2. **Asistente de Voz**: Botón flotante (micrófono) abajo a la derecha. Permite dictar la mantención (ej: "José revisó el ascensor hoy").
+      1. **Agregar Registro**: Botón "Nuevo". Se piden datos como Fecha, Hora, Técnico, Sector (Opcional), Ubicación, Equipo (Selección múltiple 1-22).
+      2. **Asistente de Voz**: Botón flotante (micrófono) abajo a la derecha. Permite dictar la mantención (ej: "José revisó los ascensores 1 y 2").
       3. **Vistas**: Calendario (visual) y Lista (tabla detallada).
       4. **Exportar**: Menú "Exportar" para generar PDF (para Drive) o CSV (Excel), compartir por WhatsApp o Correo.
       5. **Análisis IA**: Botón "Analizar" que busca patrones en los datos del mes.

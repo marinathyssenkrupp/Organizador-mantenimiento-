@@ -1,6 +1,6 @@
 import React from 'react';
 import { MaintenanceRecord, EquipmentType } from '../types';
-import { Trash2, User, Clock, Hash, Calendar, Volume2, Edit2 } from 'lucide-react';
+import { Trash2, User, Clock, Hash, Calendar, Volume2, Edit2, Map } from 'lucide-react';
 
 interface MaintenanceTableProps {
   records: MaintenanceRecord[];
@@ -44,7 +44,8 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({ records, typ
             <tr>
               <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><Calendar size={14}/> Fecha</div></th>
               <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><Clock size={14}/> Hora</div></th>
-              <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><Hash size={14}/> Equipo</div></th>
+              <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><Map size={14}/> Sector</div></th>
+              <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><Hash size={14}/> Equipo(s)</div></th>
               <th className="px-6 py-3 font-medium"><div className="flex items-center gap-1"><User size={14}/> Técnico</div></th>
               <th className="px-6 py-3 font-medium">Nota</th>
               <th className="px-6 py-3 font-medium text-right">Acciones</th>
@@ -57,6 +58,9 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({ records, typ
                   {new Date(record.date).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </td>
                 <td className="px-6 py-3 text-gray-600 dark:text-gray-300">{record.time}</td>
+                <td className="px-6 py-3 text-gray-600 dark:text-gray-300 capitalize">
+                    {record.sector || <span className="text-gray-300 dark:text-gray-600">-</span>}
+                </td>
                 <td className="px-6 py-3">
                   <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                     {record.equipmentOrder}

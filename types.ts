@@ -15,8 +15,9 @@ export interface MaintenanceRecord {
   date: string; // ISO Date string YYYY-MM-DD
   time: string; // HH:mm
   location: Location;
+  sector?: string; // New field for specific sector
   equipmentType: EquipmentType;
-  equipmentOrder: string; // Identifier/Order of the equipment
+  equipmentOrder: string; // Identifier/Order of the equipment (Now supports multiple like "1, 2, 3")
   notes?: string;
   audioNote?: string; // Base64 string of the audio recording
 }
